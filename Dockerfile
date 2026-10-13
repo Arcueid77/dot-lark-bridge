@@ -4,12 +4,15 @@
 FROM node:24-bookworm-slim
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DATABASE_PATH=/data/bridge.sqlite
 WORKDIR /opt/dot-lark-bridge
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3-pypdf util-linux openssl && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /data && chown node:node /data /opt/dot-lark-bridge
 COPY --chown=node:node package.json package-lock.json LICENSE ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY --chown=node:node src/ ./src/
 COPY --chown=node:node scripts/ ./scripts/
-COPY --from=bridge_transport --chown=node:node / /opt/dot-qq-bridge/packages/dot-bridge-transport/
+COPY --from=bridge_shared --chown=node:node /dot-bridge-transport/ /opt/dot-qq-bridge/packages/dot-bridge-transport/
+COPY --from=bridge_shared --chown=node:node /dot-bridge-platform/ /opt/dot-qq-bridge/packages/dot-bridge-platform/
+COPY --from=bridge_shared --chown=node:node /dot-bridge-tunnel/ /opt/dot-qq-bridge/packages/dot-bridge-tunnel/
 USER node
 VOLUME ["/data"]
 EXPOSE 3000

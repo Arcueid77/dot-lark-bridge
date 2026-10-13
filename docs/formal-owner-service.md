@@ -1,4 +1,9 @@
-# Continuous owner-only Feishu service
+# Continuous Feishu Tunnel service
+
+This document's default scope remains the paired owner. Optional rich replies,
+media and explicitly configured groups are described in [chat-experience.md](chat-experience.md).
+They require the standard callback transport and a protected interaction policy;
+the older owner-scoped proxy example is not a prerequisite for a direct VPS.
 
 The formal service reuses `Bridge`, `Store`, the existing worker and official
 SDK connection. It is separate from the single-message experimental launcher.
@@ -18,7 +23,7 @@ source repositories side by side.
 AUTH_MODE=tunnel-service
 BRIDGE_MODE=tunnel
 TUNNEL_SERVICE_OPERATION=live
-CALLBACK_TRANSPORT_MODE=owner-scoped-proxy
+CALLBACK_TRANSPORT_MODE=standard
 TUNNEL_SERVICE_OWNER_ID=tunnel-owner:dot-bridge
 LARK_TRANSPORT=long-connection
 HOST=127.0.0.1
@@ -29,7 +34,7 @@ STORAGE_KEY_FILE=/private/bridge/storage-key
 DATABASE_PATH=/private/bridge/formal-messages.sqlite
 BRIDGE_LOCK_DIRECTORY=/private/bridge/locks
 REPLY_TTL_SECONDS=900
-TEXT_RETENTION_SECONDS=86400
+TEXT_RETENTION_SECONDS=604800
 ```
 
 The retention value above is an example, not an authorization to store real

@@ -1,4 +1,7 @@
 import { BridgeError, hash, object, plainText, string } from './common.js';
+import { groupPolicy, senderAllowed, routeAllowed, MAX_REPLY_TEXT } from './interaction-policy.js';
+import { parseMessageContent, groupTriggered } from './message-content.js';
+import { renderedReply } from './reply-renderer.js';
 
 export const FEISHU_ORIGIN = 'https://open.feishu.cn';
 export const INBOUND_EVENT = 'im.message.receive_v1';
@@ -16,7 +19,25 @@ export function incomingMessage(data, config, now) {
   if (!config.ownerOpenId || !config.tenantKey || !config.ownerChatId || !config.larkAppId || !config.principal || config.authMode === 'deny') {
     throw new BridgeError('Owner binding is not configured', { status: 503 });
   }
-  return ownerPrivateText(data, config, now);
+  if (!config.interaction?.enabled) return ownerPrivateText(data, config, now);
+  if (!data || data.event_type !== INBOUND_EVENT || data.app_id !== config.larkAppId || data.tenant_key !== config.tenantKey || data.sender?.tenant_key !== config.tenantKey || data.sender?.sender_type !== 'user') throw new BridgeError('Feishu source or identity is not allowlisted', { status: 403 });
+  const message = data.message, sender = data.sender?.sender_id?.open_id;
+  string(sender, 256);
+  if (!message) throw new BridgeError('Missing Feishu message');
+  let policy;
+  if (message.chat_type === 'p2p') {
+    if (sender !== config.ownerOpenId || message.chat_id !== config.ownerChatId) throw new BridgeError('Feishu conversation is not allowlisted', { status: 403 });
+  } else if (message.chat_type === 'group') {
+    const botMentioned=Array.isArray(message.mentions)&&!!config.interaction.botOpenId&&message.mentions.some(mention=>mention?.id?.open_id===config.interaction.botOpenId);
+    policy = groupPolicy(config, message.chat_id,botMentioned);
+    if (!senderAllowed(config, policy, sender)) throw new BridgeError('Group or sender is not allowlisted', { status: 403 });
+  } else throw new BridgeError('Unsupported conversation', { status: 403 });
+  string(message.message_id, 256); string(data.event_id, 256);
+  const occurred = millis(message.create_time), eventAt = millis(data.create_time);
+  if (occurred > now + 30000 || eventAt > now + 30000 || occurred + config.replyTtlMs <= now || Math.abs(eventAt - occurred) > 60000) throw new BridgeError('Feishu message is too old or in the future');
+  const parsed = parseMessageContent(message, config);
+  if (!parsed || (policy && !groupTriggered(message, parsed, policy, config.interaction.botOpenId))) return null;
+  return { id: message.message_id, sourceEventId: data.event_id, owner: sender, tenantKey: config.tenantKey, chatId: message.chat_id, chatType: message.chat_type, replyInThread: policy?.replyInThread ?? false, ...parsed, timestamp: new Date(occurred).toISOString(), expires: occurred + config.replyTtlMs };
 }
 
 // Shared by normal ingestion and the operator-only pairing dispatcher. Pairing
@@ -76,11 +97,11 @@ export function createLarkSender(config, send, clock = Date.now) {
     })().finally(() => { pending = undefined; });
     return pending;
   }
-  return async function sendReply(message, text, { authorize = () => {} } = {}) {
-    if (message.owner !== config.ownerOpenId || message.tenant_key !== config.tenantKey || message.chat_id !== config.ownerChatId) {
+  const sendReply = async function sendReply(message, text, { authorize = () => {} } = {}) {
+    if (!routeAllowed(config, message)) {
       throw new BridgeError('Reply route is no longer authorized', { code: -32012 });
     }
-    plainText(text); authorize();
+    plainText(text,config.interaction?.enabled?MAX_REPLY_TEXT:2000); authorize();
     const accessToken = await getToken(authorize);
     if (message.expires <= clock()) throw new BridgeError('Bridge reply deadline expired', { code: -32012 });
     authorize();
@@ -88,7 +109,7 @@ export function createLarkSender(config, send, clock = Date.now) {
     try {
       response = await send(`${FEISHU_ORIGIN}/open-apis/im/v1/messages/${encodeURIComponent(message.id)}/reply`, {
         purpose: 'provider', hosts: ['open.feishu.cn'], headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: Buffer.from(JSON.stringify({ msg_type: 'text', content: JSON.stringify({ text }), reply_in_thread: false,
+        body: Buffer.from(JSON.stringify({ ...renderedReply(text,config.interaction?.enabled?config.interaction.render:'text'), reply_in_thread: message.reply_in_thread ?? false,
           uuid: replyUuid(config.larkAppId, message.id) })), beforeConnect: authorize });
     } catch (error) {
       if (error instanceof BridgeError && error.code === -32012) throw error;
@@ -110,4 +131,7 @@ export function createLarkSender(config, send, clock = Date.now) {
     }
     return data.data.message_id;
   };
+  sendReply.token=getToken;
+  sendReply.invalidate=()=>{token=undefined;expires=0;};
+  return sendReply;
 }

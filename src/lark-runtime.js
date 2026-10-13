@@ -4,7 +4,8 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import https from 'node:https';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { BridgeError } from './common.js';
-import { INBOUND_EVENT, incomingMessage } from './lark.js';
+import { INBOUND_EVENT, incomingMessage,createLarkSender } from './lark.js';
+import { createInteractionsApi } from './lark-interactions-api.js';
 import { publicAddress, makePublicRequester, destinationUrl, callbackTransportStatus } from './network.js';
 
 // SDK logs may include payloads or websocket URLs. Never forward their arguments.
@@ -12,7 +13,7 @@ export function safeSdkLogger(report = () => {}) {
   return { trace() {}, debug() {}, info() {}, warn() { report('lark_sdk_warning'); }, error() { report('lark_sdk_error'); } };
 }
 
-export function createLarkDispatcher(config, store, clock = Date.now, { sdk = lark, report = () => {}, isStopping = () => false, authorize = () => {} } = {}) {
+export function createLarkDispatcher(config, store, clock = Date.now, { sdk = lark, report = () => {}, isStopping = () => false, authorize = () => {},verifyGroupIdentity } = {}) {
   return createVerifiedLarkDispatcher(config, async data => {
       if (isStopping()) throw new BridgeError('Bridge is stopping', { status: 503 });
       if (!config.ownerOpenId || !config.ownerChatId || !config.principal || config.authMode === 'deny') {
@@ -28,6 +29,10 @@ export function createLarkDispatcher(config, store, clock = Date.now, { sdk = la
         throw error;
       }
       if (!message) return { outcome: 'ignored' };
+      if(message.chatType==='group'){
+        if(store.activeSubscription(clock())?.scope!=='configured')return {outcome:'ignored'};
+        if(config.authMode==='tunnel-service'){if(typeof verifyGroupIdentity!=='function')throw new BridgeError('Group bot identity check unavailable',{status:503});await verifyGroupIdentity();}
+      }
       if (store.get('SELECT id FROM messages WHERE outbound_id=?', message.id)) return { outcome: 'ignored' };
       authorize();
       const outcome = store.ingest(message, `lark:${data.event_id}`, clock());
@@ -79,9 +84,16 @@ export function createFeishuAgent(lookup = dnsLookup, { proxyEnv = process.env, 
 }
 
 export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark, report = () => {}, send, isStopping = () => false } = {}) {
+  const provider=send?createInteractionsApi(config,send,createLarkSender(config,send,clock),clock):null;
+  let verifiedBot=false,botPending;
+  const verifyGroupIdentity=async()=>{
+    if(verifiedBot)return;if(!provider)throw new BridgeError('Group identity provider unavailable',{status:503});
+    if(!botPending)botPending=provider.verifyBot(()=>{if(!allowed())throw new BridgeError('Group subscription inactive',{code:-32012});}).then(()=>{verifiedBot=true;}).finally(()=>{botPending=undefined;});
+    await botPending;
+  };
   const dispatcher = createLarkDispatcher(config, store, clock, { sdk, report, isStopping, authorize: () => {
     if (gated && !allowed()) throw new BridgeError('Callback delivery authorization is inactive', { code: -32012, status: 503 });
-  } });
+  },verifyGroupIdentity });
   const gated = config.authMode === 'tunnel-service' && config.tunnelServiceOperation === 'live';
   let connection, pending, closed = false, nextAttempt = 0;
   const allowed = () => {

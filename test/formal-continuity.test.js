@@ -9,7 +9,7 @@ import {createLarkDispatcher} from '../src/lark-runtime.js';
 import {makePublicRequester} from '../src/network.js';
 import {subscriptionParams} from './helpers.js';
 import {makeOwnerScopedProxyTransport} from '../../dot-qq-bridge/packages/dot-bridge-transport/owner-scoped.js';
-import {privateMkdtempSync,cleanupPrivateFixture} from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import {privateMkdtempSync,cleanupPrivateFixture,beforeFixtureCleanup} from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
 function fixture(t){
  const dir=privateMkdtempSync(path.join(os.tmpdir(),'formal-owner-'));cleanupPrivateFixture(t,dir);
  const service=path.join(dir,'service'),storage=path.join(dir,'storage'),paired=path.join(dir,'paired');
@@ -24,7 +24,7 @@ function fixture(t){
   app=createApp(config,{send,clock:()=>now,worker:false,approvedLive:true});return app;
  }
  async function close(){await app?.close();app=undefined;transport?.close?.();}
- t.after(close);
+ beforeFixtureCleanup(t,close);
  const principal=()=>({id:config.principal,validUntil:now+3600000});
  const receive=async(id,text)=>{const p={schema:'2.0',header:{event_id:'e-'+id,event_type:'im.message.receive_v1',create_time:String(now),app_id:identity.appId,tenant_key:'tenant'},event:{sender:{sender_id:{open_id:'owner'},sender_type:'user',tenant_key:'tenant'},message:{message_id:id,chat_id:'chat',chat_type:'p2p',message_type:'text',create_time:String(now),content:JSON.stringify({text})}}};return createLarkDispatcher(config,app.bridge.store,()=>now).invoke(p,{needCheck:false});};
  return{open,close,receive,config,env,principal,events,replies,challenges,holdNextChallenge(){holdChallenge=true;},releaseChallenge(){releaseChallenge?.();},get app(){return app;},get now(){return now;},set now(v){now=v;},set failEvent(v){failEvent=v;},set revokeAfterEvent(v){revokeAfterEvent=v;}};

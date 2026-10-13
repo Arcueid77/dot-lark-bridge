@@ -15,21 +15,22 @@ function json(res, status, value, headers = {}) {
   res.end(JSON.stringify(value));
 }
 async function readBody(req) {
+  const limit=req.headers['mcp-name']==='reply_lark_media'?12*1024*1024:['reply_to_lark','append_lark_reply'].includes(req.headers['mcp-name'])?262144:32768;
   if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) throw new BridgeError('Expected application/json', { status: 415 });
   if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') throw new BridgeError('Compressed bodies are unsupported', { status: 415 });
-  if (Number(req.headers['content-length']) > 32768) throw new BridgeError('Request too large', { status: 413 });
-  let timer;
+  if (Number(req.headers['content-length']) > limit) throw new BridgeError('Request too large', { status: 413 });
+  let timer,bodySettled=false;
   const read = (async () => {
     let bytes = 0; const chunks = [];
     for await (const chunk of req) {
       bytes += chunk.length;
-      if (bytes > 32768) throw new BridgeError('Request too large', { status: 413 });
+      if (bytes > limit) throw new BridgeError('Request too large', { status: 413 });
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);
   })();
-  const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new BridgeError('Body timeout', { status: 408 })); req.destroy(); }, 10000); });
-  try { return await Promise.race([read, timeout]); } finally { clearTimeout(timer); }
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => { if(bodySettled)return;reject(new BridgeError('Body timeout', { status: 408 })); req.destroy(); }, 10000); });
+  try { return await Promise.race([read, timeout]); } finally { bodySettled=true;clearTimeout(timer); }
 }
 function parse(body) {
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)); }
@@ -126,8 +127,10 @@ export function createApp(config, { clock = Date.now, send = makePublicRequester
         error: { code: safe.code, message: safe.message, ...(safe.data ? { data: safe.data } : {}) } } : { error: safe.message }, extra);
     }
   });
-  server.headersTimeout = 10000; server.requestTimeout = 15000; server.timeout = 30000;
+  server.headersTimeout = 10000; server.requestTimeout = 15000; server.timeout = config.interaction?.enabled?60000:30000;
   server.keepAliveTimeout = 5000; server.maxConnections = 64;
+  let feedbackTick=Promise.resolve(),feedbackInterval;
+  function runFeedback(){if(stopping||bridge.interactions.feedbackRunning)return;feedbackTick=bridge.interactions.tickFeedback().catch(()=>{report('lark_sdk_warning');});}
   function runWorker() {
     if (stopping || bridge.running) return;
     lastTick = Promise.resolve(larkRuntime.syncSubscription()).then(() => bridge.tick()).then(() => {
@@ -143,16 +146,16 @@ export function createApp(config, { clock = Date.now, send = makePublicRequester
       listenSettled = new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, resolve); });
       await listenSettled;
       if (stopping) return server.address();
-      if (worker && !tunnelReadiness(config)) { interval = setInterval(runWorker, config.workerIntervalMs); interval.unref(); }
+      if (worker && !tunnelReadiness(config)) { interval = setInterval(runWorker, config.workerIntervalMs); interval.unref(); feedbackInterval=setInterval(runFeedback,config.workerIntervalMs);feedbackInterval.unref(); }
       await larkRuntime.start();
       return server.address();
     },
     async close() {
       if (!closing) closing = (async () => {
-        stopping = true; clearInterval(interval); larkRuntime.close();
+        stopping = true; clearInterval(interval);clearInterval(feedbackInterval); larkRuntime.close();
         await listenSettled?.catch(() => {});
         await new Promise(resolve => server.close(resolve));
-        await lastTick; bridge.store.close();
+        await lastTick;await feedbackTick; bridge.store.close();
       })();
       return closing;
     }

@@ -1,5 +1,12 @@
 # 云端源码交接与启动
 
+同级两仓库必须同时固定 SHA。正式 Secure MCP Tunnel 常驻部署使用
+`node --env-file=/受保护路径/lark.env scripts/run-tunnel-live.js --confirm-live-owner-bridge`，
+配置为 tunnel-service/live/long-connection，MCP 仅 loopback；共享聚合路由器位于 QQ 仓库，
+QQ 入口只用 readiness，不能把克隆共享源码当作开启 QQ 收发的授权。
+处理提示、媒体和群配置见 [chat-experience.md](chat-experience.md)。
+下文 OAuth 与旧模板保留为历史资料，本次不可照搬为 ExecStart。
+
 交接目标是由主线程在获准的云机器/持续容器中运行，用户电脑只用于初始批准或扫码。此仓库没有选择云供应商、创建资源、构建发布镜像或将本机运行当作云托管。
 
 ## 源码包

@@ -5,6 +5,7 @@ import { assertTunnelServiceConfig, readPrivateKey } from './tunnel-service-auth
 import path from 'node:path';
 import { readBridgeMode } from './bridge-mode.js';
 import { loadCredentials } from './credentials.js';
+import { loadInteractionPolicy } from './interaction-policy.js';
 
 function number(env, key, fallback, min, max) {
   const value = env[key] ? Number(env[key]) : fallback;
@@ -21,7 +22,7 @@ export function readConfig(env = process.env) {
     if (env.TUNNEL_SERVICE_READINESS_ONLY && (env.TUNNEL_SERVICE_READINESS_ONLY !== 'true' || operation !== 'readiness')) throw new Error('Conflicting legacy readiness flag');
     const forbidden = ['PUBLIC_ORIGIN', 'MCP_OWNER_SUBJECT', 'DEV_BEARER_TOKEN', 'OAUTH_ISSUER', 'OAUTH_JWKS_URL', 'OAUTH_AUDIENCE', 'OAUTH_REQUIRED_SCOPE',
       'SITES_ORIGIN', 'SITES_BINDING_ID', 'SITES_SERVICE_CREDENTIAL', 'SITES_CONNECTOR_CREDENTIAL', 'MCP_ALLOWED_ORIGINS', 'LARK_APP_ID', 'LARK_APP_SECRET', 'LARK_OWNER_OPEN_ID', 'LARK_TENANT_KEY', 'LARK_OWNER_CHAT_ID', 'STORAGE_KEY'];
-    if (operation === 'readiness') forbidden.push('LARK_CREDENTIALS_FILE', 'MCP_CALLBACK_ALLOWED_HOSTS', 'STORAGE_KEY_FILE');
+    if (operation === 'readiness') forbidden.push('LARK_CREDENTIALS_FILE', 'MCP_CALLBACK_ALLOWED_HOSTS', 'STORAGE_KEY_FILE','LARK_INTERACTION_POLICY_FILE');
     if (forbidden.some(key => env[key])) throw new Error('Tunnel service cannot mix external auth or inline provider secrets; readiness forbids provider credentials and callbacks');
     if (operation === 'live' && (env.LARK_TRANSPORT !== 'long-connection' || !/^cli_[0-9a-fA-F]{16}$/.test(env.LARK_EXPECTED_APP_ID || '') || !env.LARK_CREDENTIALS_FILE || !env.STORAGE_KEY_FILE || !env.DATABASE_PATH || !env.BRIDGE_LOCK_DIRECTORY)) throw new Error('Live tunnel requires explicit file references and callback policy');
   }
@@ -41,6 +42,7 @@ export function readConfig(env = process.env) {
   const mode = env.AUTH_MODE || 'deny';
   if (!['deny', 'dev', 'oauth', 'tunnel-service'].includes(mode)) throw new Error('Invalid AUTH_MODE');
   const config = {
+    interaction: loadInteractionPolicy(env.LARK_INTERACTION_POLICY_FILE), interactionPolicyFile: env.LARK_INTERACTION_POLICY_FILE || '',
     callbackTransportMode,
     credentialsFile: env.LARK_CREDENTIALS_FILE || '', expectedAppId: env.LARK_EXPECTED_APP_ID || '',
     bridgeMode, bridgeLockDirectory: env.BRIDGE_LOCK_DIRECTORY || '',
@@ -63,6 +65,8 @@ export function readConfig(env = process.env) {
     retryBaseMs: 1000, workerIntervalMs: 500, leaseMs: 60000,
     textRetentionMs: number(env, 'TEXT_RETENTION_SECONDS', 604800, 60, 604800) * 1000
   };
+  if(config.interaction.enabled&&(bridgeMode!=='tunnel'||callbackTransportMode!=='standard'))throw new Error('Extended interactions require standard Tunnel mode');
+  if(config.interaction.enabled)config.leaseMs=180000;
   if (config.textRetentionMs < config.replyTtlMs) throw new Error('TEXT_RETENTION_SECONDS must not be shorter than REPLY_TTL_SECONDS');
   if (!['disabled', 'long-connection'].includes(config.larkTransport)) throw new Error('Invalid LARK_TRANSPORT');
   if (mode === 'tunnel-service') {

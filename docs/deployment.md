@@ -1,4 +1,16 @@
-# 常驻云端部署与操作（模板，未部署）
+# 常驻云端部署与操作
+
+官方 Secure MCP Tunnel 的正式入口为 `scripts/run-tunnel-live.js --confirm-live-owner-bridge`，
+使用 `AUTH_MODE=tunnel-service`、`BRIDGE_MODE=tunnel`、`TUNNEL_SERVICE_OPERATION=live`、
+`TUNNEL_SERVICE_OWNER_ID=tunnel-owner:dot-bridge`、`LARK_TRANSPORT=long-connection`。
+配对凭据、独立 service key、STORAGE_KEY、数据库和锁均使用受保护文件/目录。
+聚合器和两个后端只监听 loopback；QQ 只用 readiness。持续运行服务使用普通非 root systemd，
+不设 `DOT_BRIDGE_SUPERVISED=1`，不把 stdin、SSH 或诊断窗口当作监督器。
+飞书新体验和群聊升级见 [chat-experience.md](chat-experience.md)。升级保留原状态，
+先固定两仓库 SHA、测试、备份，再启动；离线结果和真实实例验收分别记录。
+
+下文的 OAuth、反向代理、Sites 与 run-service 示例为其他历史部署方式，
+不能替代本次 Tunnel live 入口，也不能作为已部署或已验收的结论。
 
 最终运行位置应是获批准的单实例云 VM 或持续运行的容器服务。需要持续进程/CPU、稳定 HTTPS MCP 入口、出站 WSS 与 HTTPS、持久卷、TLS 和秘密管理。停止用户电脑不能影响云实例。静态网站、请求结束就冻结的函数和会休眠的实例不满足要求；本次未选择供应商或产生费用。
 
@@ -68,7 +80,7 @@ callback 传输位于 QQ 仓库的 `packages/dot-bridge-transport/`，不另建�
 容器模板通过单独的只含公开 package 源码的 named build context 保留相同目录关系：
 
 ```sh
-docker build --build-context bridge_transport=../dot-qq-bridge/packages/dot-bridge-transport -t dot-lark-bridge .
+docker build --build-context bridge_shared=../dot-qq-bridge/packages -t dot-lark-bridge .
 ```
 
 该命令在飞书仓库中执行，需要支持 named contexts 的 BuildKit。此轮只检查源码与离线测试，
