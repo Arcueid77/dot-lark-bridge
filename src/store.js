@@ -223,8 +223,8 @@ export class Store {
       return { ...job, attempts: job.attempts + 1, lease_token: token };
     });
   }
-  finish(job, state, reason = null, next = 0) {
-    this.run("UPDATE jobs SET state=?,last_error=?,next_at=?,lease_until=NULL,lease_token=NULL WHERE id=? AND lease_token=? AND state='processing'", state, reason, next, job.id, job.lease_token);
+  finish(job, state, reason = null, next = 0, { resetAttempts = false } = {}) {
+    this.run("UPDATE jobs SET state=?,last_error=?,next_at=?,attempts=CASE WHEN ? THEN 0 ELSE attempts END,lease_until=NULL,lease_token=NULL WHERE id=? AND lease_token=? AND state='processing'", state, reason, next, resetAttempts ? 1 : 0, job.id, job.lease_token);
   }
   recordEventUncertain(job) {
     // Revocation can stop future work but cannot undo a callback already on wire.

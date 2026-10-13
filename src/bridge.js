@@ -244,7 +244,8 @@ export class Bridge {
         this.store.run('UPDATE messages SET outbound_id=? WHERE id=?',outboundId,message.id);this.store.finish(job,'sent');
       } else if(job.kind==='stream'){
         await this.interactions.runStream(job);
-        this.store.finish(job,this.interactions.stream(message.id)?.state==='pending'?'pending':'delivered',null,this.clock()+500);
+        // Successful progress must not consume the consecutive failure budget.
+        this.store.finish(job,this.interactions.stream(message.id)?.state==='pending'?'pending':'delivered',null,this.clock()+500,{resetAttempts:true});
       } else {
         try { this.store.tx(() => this.store.rate('reply', this.config.repliesPerMinute, now)); }
         catch (error) {
@@ -258,7 +259,7 @@ export class Bridge {
           await this.interactions.runStream(job);
           const current=this.interactions.stream(message.id);
           if(current.state==='complete')this.store.recordReplyAck(job,current.outboundId);
-          else this.store.finish(job,'pending',null,this.clock()+500);
+          else this.store.finish(job,'pending',null,this.clock()+500,{resetAttempts:true});
         }else{
           const outboundId = await this.sendLark(message, this.store.replyText(message.id), { authorize: () => this.authorizeJob(job) });
           this.store.recordReplyAck(job, outboundId);

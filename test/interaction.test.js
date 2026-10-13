@@ -91,6 +91,37 @@ test('generated chunks are ordered/idempotent and finalization updates one card 
   assert.equal(f.calls.replies.length,1);assert.equal(f.app.bridge.store.replyStatus('stream').status,'sent');assert.equal(f.app.bridge.interactions.stream('stream').state,'complete');
   assert.ok(f.calls.updates.every((value,index,list)=>index===0||value.sequence>list[index-1].sequence));
 });
+test('successful card progress can exceed the failure retry budget without losing updates',async t=>{
+  const f=await setup(t);f.config.maxAttempts=2;
+  await f.subscribe();await f.receive('many-chunks');await f.app.bridge.tick();
+  await f.tool('begin_lark_reply',{message_id:'many-chunks'});await f.app.bridge.tick();
+  let text='';
+  for(let sequence=1;sequence<=12;sequence++){
+    const chunk=`段落 ${sequence}。`;text+=chunk;
+    assert.equal((await f.tool('append_lark_reply',{message_id:'many-chunks',sequence,text:chunk})).status,200);
+    await f.app.bridge.tick();
+    assert.equal(f.app.bridge.interactions.stream('many-chunks').applied_sequence,sequence);
+    assert.equal(f.calls.replies.length,1);
+  }
+  await f.tool('reply_to_lark',{message_id:'many-chunks',text});await f.app.bridge.tick();
+  assert.equal(f.app.bridge.store.replyStatus('many-chunks').status,'sent');
+  assert.equal(f.app.bridge.interactions.stream('many-chunks').state,'complete');
+  assert.equal(f.calls.replies.length,1);
+});
+
+test('consecutive known card failures still exhaust the retry budget and stop updates',async t=>{
+  let updates=0;const f=await setup(t,[],{send:async(url,request)=>{
+    if(url.includes('/cardkit/v1/cards/')&&request.method==='PUT'){updates++;return{status:429,body:Buffer.from('{}')};}
+  }});f.config.maxAttempts=2;
+  await f.subscribe();await f.receive('limited-card');await f.app.bridge.tick();
+  await f.tool('begin_lark_reply',{message_id:'limited-card'});await f.app.bridge.tick();
+  f.advance(10000);await f.app.bridge.tick();
+  assert.equal(updates,2);assert.equal(f.app.bridge.interactions.stream('limited-card').state,'failed');
+  f.advance(10000);await f.app.bridge.tick();assert.equal(updates,2);
+  assert.equal(f.calls.replies.length,1);
+  assert.equal((await f.tool('append_lark_reply',{message_id:'limited-card',sequence:1,text:'不得继续'})).status,400);
+});
+
 test('unknown card reply acknowledgement is terminal and never causes a second message',async t=>{
   let dropped=false;const f=await setup(t,[],{send:async(url,request,_f,calls)=>{if(url.endsWith('/reply')){calls.replies.push({id:'unknown',body:JSON.parse(request.body)});dropped=true;throw new Error('synthetic acknowledgement lost');}}});
   await f.subscribe();await f.receive('unknown');await f.app.bridge.tick();await f.tool('begin_lark_reply',{message_id:'unknown'});await f.app.bridge.tick();assert.equal(dropped,true);
