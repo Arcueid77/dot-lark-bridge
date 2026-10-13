@@ -173,7 +173,7 @@ export class Store {
         AND m.attempted_at IS NOT NULL AND m.expires>? AND COALESCE(j.state,'none') IN ('none','pending','processing')
       ORDER BY m.received,m.rowid LIMIT 1000`,principal,this.config.tenantKey,subscription.id,subscription.generation,now);
     return rows.filter(row => { const route = { ...row, ...details(this, row.id) }; return routeAllowed(this.config, route) && (route.chat_type !== 'group' || subscription.scope === 'configured') && ['none','pending','processing'].includes(this.replyStatus(row.id).status); }).slice(0,limit)
-      .map(row=>({message_id:row.id,reply_deadline:new Date(row.expires).toISOString(),reply_status:row.reply_status}));
+      .map(row=>({message_id:row.id,reply_deadline:new Date(row.expires).toISOString(),reply_status:this.replyStatus(row.id).status}));
   }
   queueReply(id, text, principal, now, plan = null) {
     return this.tx(() => {
@@ -201,10 +201,11 @@ export class Store {
   }
   replyStatus(id) {
     const row = this.get("SELECT state,last_error FROM jobs WHERE id=? AND kind='reply'", `reply:${id}`);
-    const stream=!row?this.get('SELECT state FROM reply_streams WHERE message_id=?',id):null;
+    const stream=!row?this.get('SELECT state,payload FROM reply_streams WHERE message_id=?',id):null;
     const notice=!row?this.get("SELECT state,last_error FROM jobs WHERE id=? AND kind='notice'",`notice:${id}`):null;
     const terminal={uncertain:'uncertain',failed:'dead',cancelled:'cancelled',expired:'expired'};
-    return { message_id: id, status: row?.state ?? notice?.state ?? terminal[stream?.state] ?? 'none', error: row?.last_error ?? notice?.last_error ?? (terminal[stream?.state]?'reply_card_terminal':null) };
+    const started=stream&&!terminal[stream.state]&&this.vault.open(stream.payload,`stream:${id}`).modelStarted;
+    return { message_id: id, status: row?.state ?? notice?.state ?? terminal[stream?.state] ?? (started?'processing':'none'), error: row?.last_error ?? notice?.last_error ?? (terminal[stream?.state]?'reply_card_terminal':null) };
   }
   claim(now) {
     return this.tx(() => {

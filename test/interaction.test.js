@@ -81,6 +81,7 @@ test('typing reaction starts only after durable acceptance, disappears on positi
 test('generated chunks are ordered/idempotent and finalization updates one card without a second text reply',async t=>{
   const f=await setup(t);await f.subscribe();await f.receive('stream');await f.app.bridge.tick();
   assert.equal((await f.tool('begin_lark_reply',{message_id:'stream'})).status,200);
+  assert.equal((await f.tool('get_lark_message',{message_id:'stream'})).body.result.structuredContent.reply.status,'processing');
   await f.tool('append_lark_reply',{message_id:'stream',sequence:1,text:'真正生成的第一段。'});await f.app.bridge.tick();
   assert.equal(f.calls.replies.length,1);assert.equal(f.calls.replies[0].body.msg_type,'interactive');
   assert.equal((await f.tool('append_lark_reply',{message_id:'stream',sequence:1,text:'真正生成的第一段。'})).status,200);
