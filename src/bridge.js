@@ -140,7 +140,9 @@ export class Bridge {
         if (params.name === 'check_lark_setup' && tunnelLive(this.config)) {
           object(params.arguments, ['callback_url']);
           const result=callbackPreflight(this.config, this.bindingReady(), params.arguments.callback_url, this.callbackTransportStatus());
-          {const sub=this.store.activeSubscription(this.clock());result.pending_messages=sub&&this.callbackAuthorized(sub)&&result.delivery_configured?this.store.pendingMessages(principal.id,this.clock()):[];}
+          if(result.callback_transport?.ready&&['direct','owner_scoped_proxy'].includes(result.callback_transport.mode)){
+            const sub=this.store.activeSubscription(this.clock());result.pending_messages=sub&&this.callbackAuthorized(sub)&&result.delivery_configured?this.store.pendingMessages(principal.id,this.clock()):[];
+          }
           return toolResult(result);
         }
         if (params.name === 'get_lark_message') {
