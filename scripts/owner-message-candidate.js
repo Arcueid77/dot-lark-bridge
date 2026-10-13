@@ -12,7 +12,7 @@ export async function startOwnerMessageCandidate({approved=false,waitForOwner=fa
  if(approved!==true)return ownerMessagePlan({waitForOwner});
  const scope=ownerMessageScope({waitForOwner,env});
  // Fixed review dependency, never an environment-selected module or network path.
- const shared=await import('../../dot-qq-bridge/packages/dot-bridge-transport/experimental/owner-message.js');
+ const shared=await import('@dot-bridge/core/transport/experimental/owner-message.js');
  const [{loadCredentials},{readTunnelReadinessConfig},{makeOwnerMessageProvider},{createLarkOwnerMessageSession},{createOwnerMessageRuntime}]=await Promise.all([
   import('../src/credentials.js'),import('../src/config.js'),import('../src/owner-message-provider.js'),import('../src/owner-message-session.js'),import('../src/owner-message-runtime.js')]);
  if(!env.OWNER_MESSAGE_DATABASE_PATH||!env.STORAGE_KEY_FILE||!env.OWNER_MESSAGE_FIXED_REPLY||!env.LARK_EXPECTED_APP_ID||!env.LARK_CREDENTIALS_FILE||!env.BRIDGE_LOCK_DIRECTORY)throw new Error('Explicit bounded candidate configuration required');

@@ -1,7 +1,7 @@
 import { createFormalServiceSender } from '../src/formal-sender.js';
 import { readConfig } from '../src/config.js';
 import { createPersistentService } from '../src/service.js';
-import { supervisedStop } from '../../dot-qq-bridge/packages/dot-bridge-platform/supervised-stop.js';
+import { supervisedStop } from '@dot-bridge/core/platform/supervised-stop.js';
 let service, stopSupervision = () => {};
 try {
   if (process.argv.length !== 3 || process.argv[2] !== '--confirm-live-owner-bridge') {

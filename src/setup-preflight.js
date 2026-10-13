@@ -1,5 +1,5 @@
 import { ownerScopedProxy } from './callback-mode.js';
-import { callbackTransportStatusSchema } from '../../dot-qq-bridge/packages/dot-bridge-transport/index.js';
+import { callbackTransportStatusSchema } from '@dot-bridge/core/transport';
 import { destinationUrl, safeCallbackTransportStatus } from './network.js';
 export const larkSetupTool = {
  name: 'check_lark_setup', title: 'Check local Feishu bridge setup', description: 'Local policy inspection only; never resolves DNS, connects or changes callback permission.',

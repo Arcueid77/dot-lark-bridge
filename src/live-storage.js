@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { windowsPrivateDirectory, windowsPrivateDatabase } from '../../dot-qq-bridge/packages/dot-bridge-platform/index.js';
+import { windowsPrivateDirectory, windowsPrivateDatabase } from '@dot-bridge/core/platform';
 export function assertLiveStorage(config) {
   if (process.platform === 'win32') {
     try {

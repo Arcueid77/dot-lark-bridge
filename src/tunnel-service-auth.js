@@ -1,7 +1,7 @@
 import { assertCallbackMode } from './callback-mode.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import { windowsReadPrivateFile } from '../../dot-qq-bridge/packages/dot-bridge-platform/index.js';
+import { windowsReadPrivateFile } from '@dot-bridge/core/platform';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 const loopback = host => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(host);

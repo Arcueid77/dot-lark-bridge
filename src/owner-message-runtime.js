@@ -2,7 +2,7 @@ import http from 'node:http';
 import { TextDecoder } from 'node:util';
 import { createAuthenticator } from './auth.js';
 import { validateMcp } from './server.js';
-import { expectedBackendTools, liveEventDefinitions } from '../../dot-qq-bridge/packages/dot-bridge-tunnel/src/catalog.js';
+import { expectedLarkBackendTools, larkEvent } from './tunnel-adapter.js';
 import { createLarkConnection } from './lark-runtime.js';
 import { acquireModeLock } from './bridge-mode.js';
 import { object, rpcResult, toolResult } from './common.js';
@@ -47,8 +47,8 @@ export function createOwnerMessageRuntime({session,authConfig,connectionConfig,l
   const catalog={ttlMs:0,cacheScope:'private'};
   if(method==='server/discover'){object(params,['_meta']);return{supportedVersions:['2026-07-28'],capabilities:{tools:{},events:{}},...catalog};}
   if(method==='ping'){object(params,['_meta']);return{};}
-  if(method==='tools/list'){object(params,['cursor','_meta']);if(params.cursor!=null)throw Error();return{tools:expectedBackendTools('lark',true),...catalog};}
-  if(method==='events/list'){object(params,['cursor','_meta']);if(params.cursor!=null)throw Error();return{events:[liveEventDefinitions.lark],...catalog};}
+  if(method==='tools/list'){object(params,['cursor','_meta']);if(params.cursor!=null)throw Error();return{tools:expectedLarkBackendTools(true),...catalog};}
+  if(method==='events/list'){object(params,['cursor','_meta']);if(params.cursor!=null)throw Error();return{events:[larkEvent],...catalog};}
   if(method==='events/subscribe'||method==='events/unsubscribe'){
    object(params,['name','arguments','delivery','ttlMs','cursor','_meta'],['name','arguments','delivery']);object(params.arguments,['conversation'],['conversation']);
    if(params.name!=='lark.message.created'||params.arguments.conversation!=='owner'||params.cursor!=null)throw Error();

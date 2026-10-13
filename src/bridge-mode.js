@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { hash } from './common.js';
-import { windowsModeLock } from '../../dot-qq-bridge/packages/dot-bridge-platform/index.js';
+import { windowsModeLock } from '@dot-bridge/core/platform';
 export const BRIDGE_MODES = Object.freeze(['tunnel', 'sites']);
 
 export function readBridgeMode(env = process.env, { required = false } = {}) {

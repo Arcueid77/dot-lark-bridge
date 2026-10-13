@@ -10,8 +10,8 @@ import {createLarkOwnerMessageSession} from '../src/owner-message-session.js';
 import {createOwnerMessageRuntime} from '../src/owner-message-runtime.js';
 import {config} from './helpers.js';
 import {hash} from '../src/common.js';
-import * as shared from '../../dot-qq-bridge/packages/dot-bridge-transport/experimental/owner-message.js';
-import {privateMkdtempSync,cleanupPrivateFixture} from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import * as shared from '@dot-bridge/core/transport/experimental/owner-message.js';
+import {privateMkdtempSync,cleanupPrivateFixture} from '@dot-bridge/core/platform/test-fixtures.js';
 const credentials={version:1,status:'paired',appId:'cli_0123456789abcdef',appSecret:'synthetic-app-secret',tenantKey:'tenant',ownerOpenId:'owner',ownerChatId:'chat'};
 const input={url:'https://receiver.example/cb',secret:'whsec_'+Buffer.alloc(32,13).toString('base64')};
 function event(now){return{schema:'2.0',header:{event_id:'e',event_type:'im.message.receive_v1',create_time:String(now),app_id:credentials.appId,tenant_key:'tenant'},event:{sender:{sender_id:{open_id:'owner'},sender_type:'user',tenant_key:'tenant'},message:{message_id:'m',chat_id:'chat',chat_type:'p2p',message_type:'text',create_time:String(now),content:JSON.stringify({text:'BODY_NEVER_PERSISTED'})}}};}

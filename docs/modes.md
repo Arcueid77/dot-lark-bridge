@@ -38,7 +38,7 @@ listener, separate from OAuth. Use `BRIDGE_MODE=tunnel`, `HOST=127.0.0.1`,
 contain one canonical base64url encoding of 32 random bytes (optional final
 newline), be owned by the running user with mode 0600, and have an owned 0700
 parent directory on Linux. Linux descriptor-relative traversal pins each directory;
-Windows uses [owned private DACLs and pinned NTFS handles](../../dot-qq-bridge/packages/dot-bridge-platform/README.md).
+Windows uses [owned private DACLs and pinned NTFS handles](core.md).
 Other platforms fail closed. Reparse points/symlinks and hardlinks are rejected. Keys are never printed.
 Provisioning a real key requires explicit approval; tests use synthetic keys.
 Mixed OAuth/dev, provider credential and callback settings are refused before any
@@ -113,10 +113,9 @@ opening any database; a synthetic `pairedCredentialsLoaded` flag is insufficient
 
 ## Callback transport dependency and pending proxy support
 
-Clone `dot-qq-bridge` and `dot-lark-bridge` as sibling directories. The callback
-integration imports `dot-qq-bridge/packages/dot-bridge-transport/index.js`
-(`@dot-bridge/callback-transport`), which is versioned inside the QQ repository.
-No third untracked workspace is required.
+Clone only `dot-lark-bridge` and install its locked `@dot-bridge/core` tarball
+dependency from `vendor/`. No sibling repository or untracked workspace is
+required. See [standalone core deployment](core.md).
 Each person deploying the bridge supplies their own copy and private credentials.
 Only signed callback verification and event delivery use `purpose: 'callback'`.
 Provider requests, OAuth key retrieval and the Sites queue retain their separate

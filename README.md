@@ -8,7 +8,7 @@
 
 ## 离线运行
 
-需要同级放置两个源码仓库 `dot-qq-bridge/` 与 `dot-lark-bridge/`，使用与本提交一同交付的 QQ 提交。共享 callback 传输源码位于 QQ 仓库的 `packages/dot-bridge-transport/`；仅克隆飞书仓库无法启动，不再依赖第三个 Git 外目录。以下命令在 `dot-lark-bridge/` 中执行。
+只需本仓库。公共组件使用固定版本的 `@dot-bridge/core` 发行包，已随源码保存在 `vendor/` 并由锁文件校验；不需要 QQ 仓库、core 源码 clone 或同级目录。独立安装、单飞书聚合器与升级方法见 [公共组件](docs/core.md)。以下命令在 `dot-lark-bridge/` 中执行。
 
 需要 Node.js **24.15+、低于 25**。安装锁定依赖后，测试和模拟器只使用合成数据及本机 loopback，不访问飞书、OpenAI 或身份服务。
 
@@ -87,17 +87,4 @@ npm.cmd start
 
 官方参考：[OpenAI MCP Events](https://developers.openai.com/plugins/build/mcp-events)、[飞书 Node SDK](https://github.com/larksuite/node-sdk)。官方协议支持此桥接方式；账户开通、当前 dot 的实际订阅位置和模型行为仍须真实联调验收。
 
-Windows 原生私有文件、数据库和模式锁使用同级 QQ 的
-[安全平台层](../dot-qq-bridge/packages/dot-bridge-platform/README.md)；有限时长启动与停止见
-[启动器说明](../dot-qq-bridge/tools/tunnel-stack/README.md)。需要已有 Python 与本地 NTFS；
-Linux 原有分支保留。Windows 离线结果不代表 Linux 或真实 dot 消息验收。
-
-## 云环境代理兼容
-
-固定官方平台请求已增加独立代理路径；MCP 回调与 OAuth 仍保留原 IP 固定检查。网络边界、测试和剩余限制见 [云环境代理支持](docs/cloud-proxy.md)。这不代表当前 dot 或真实平台已接通。
-
-已有应用可用官方扫码更新流程复用，无需重复创建；内存会话严格匹配已批准 App ID。另有独立批准的有界 WSS 诊断。授权与未验证网络边界见 [扫码与配对](docs/register-app.md)。
-
-正式持续运行使用 `npm run serve -- --confirm-persistent-service`，在已批准且齐备的 OAuth、完整本人绑定、秘密挂载和投递策略下启动。带脱敏阶段/30 秒进程心跳/断线重连日志；飞书 connected 与 dot 端到端验收分开显示。扫码直接进入批准的私有文件存储方案及局限见 [部署说明](docs/deployment.md)。
-
-正式入口支持显式 `BRIDGE_MODE=tunnel|sites`，单一模式启动、同机应用锁和数据库模式绑定。Sites模式只向私有队列出站，不同时开本地MCP；协议与隔离边界见 [双模式说明](docs/modes.md)。当前双模式仅完成私有合成验证。
+Windows 原生私有文件、数据库和模式锁使用 [core 安全平台层](docs/core.md)。Windows 需要已有 Python 与本地 NTFS；Linux 原有分支保留。Windows 离线结果不代表 Linux 或真实 dot 消息验收。

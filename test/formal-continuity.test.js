@@ -8,8 +8,8 @@ import {createApp} from '../src/server.js';
 import {createLarkDispatcher} from '../src/lark-runtime.js';
 import {makePublicRequester} from '../src/network.js';
 import {subscriptionParams} from './helpers.js';
-import {makeOwnerScopedProxyTransport} from '../../dot-qq-bridge/packages/dot-bridge-transport/owner-scoped.js';
-import {privateMkdtempSync,cleanupPrivateFixture,beforeFixtureCleanup} from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import {makeOwnerScopedProxyTransport} from '@dot-bridge/core/transport/owner-scoped.js';
+import {privateMkdtempSync,cleanupPrivateFixture,beforeFixtureCleanup} from '@dot-bridge/core/platform/test-fixtures.js';
 function fixture(t){
  const dir=privateMkdtempSync(path.join(os.tmpdir(),'formal-owner-'));cleanupPrivateFixture(t,dir);
  const service=path.join(dir,'service'),storage=path.join(dir,'storage'),paired=path.join(dir,'paired');

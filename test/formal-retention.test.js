@@ -7,7 +7,7 @@ import { readConfig } from '../src/config.js';
 import { Store } from '../src/store.js';
 import { hash } from '../src/common.js';
 import { config } from './helpers.js';
-import { privateMkdtempSync, cleanupPrivateFixture, beforeFixtureCleanup } from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import { privateMkdtempSync, cleanupPrivateFixture, beforeFixtureCleanup } from '@dot-bridge/core/platform/test-fixtures.js';
 
 const now = Date.parse('2026-10-08T00:00:00.000Z');
 function policy(replySeconds, retentionSeconds) {

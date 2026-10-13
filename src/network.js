@@ -1,5 +1,5 @@
 import { checkedOptions, normalizeRequesterOptions } from './requester-options.js';
-import { makeCallbackTransport, projectCallbackTransportStatus, TRANSPORT_ERROR_CODES } from '../../dot-qq-bridge/packages/dot-bridge-transport/index.js';
+import { makeCallbackTransport, projectCallbackTransportStatus, TRANSPORT_ERROR_CODES } from '@dot-bridge/core/transport';
 import { configuredProviderProxy, makeProviderRequester } from './provider-network.js';
 import https from 'node:https';
 import { lookup as dnsLookup } from 'node:dns/promises';

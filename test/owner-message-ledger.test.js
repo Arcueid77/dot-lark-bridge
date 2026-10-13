@@ -7,7 +7,7 @@ import { Store } from '../src/store.js';
 import { Vault } from '../src/signatures.js';
 import { config } from './helpers.js';
 import { createOwnerMessageLedger } from '../src/owner-message-ledger.js';
-import { privateMkdtempSync, cleanupPrivateFixture, beforeFixtureCleanup } from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import { privateMkdtempSync, cleanupPrivateFixture, beforeFixtureCleanup } from '@dot-bridge/core/platform/test-fixtures.js';
 
 const key = 'owner_single_message:v1', context = 'owner-single-message:v1';
 const now = Date.parse('2026-10-08T00:00:00.000Z');

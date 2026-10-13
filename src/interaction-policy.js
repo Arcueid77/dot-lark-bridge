@@ -1,6 +1,6 @@
 import { BridgeError, object, string } from './common.js';
 import { readPrivateJson } from './private-files.js';
-import { LARK_INPUT_LIMIT, LARK_REPLY_LIMIT, LARK_MEDIA_BYTES } from '../../dot-qq-bridge/packages/dot-bridge-tunnel/src/lark-contract.js';
+import { LARK_INPUT_LIMIT, LARK_REPLY_LIMIT, LARK_MEDIA_BYTES } from './tunnel-contract.js';
 
 export const MAX_INPUT_TEXT = LARK_INPUT_LIMIT;
 export const MAX_REPLY_TEXT = LARK_REPLY_LIMIT;

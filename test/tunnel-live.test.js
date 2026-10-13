@@ -1,4 +1,4 @@
-import { cleanupPrivateFixture, beforeFixtureCleanup, privateMkdtempSync, fixtureChmodSync } from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import { cleanupPrivateFixture, beforeFixtureCleanup, privateMkdtempSync, fixtureChmodSync } from '@dot-bridge/core/platform/test-fixtures.js';
 import { makePublicRequester } from '../src/network.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';

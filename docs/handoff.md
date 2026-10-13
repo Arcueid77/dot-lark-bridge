@@ -1,10 +1,10 @@
 # 云端源码交接与启动
 
-同级两仓库必须同时固定 SHA。正式 Secure MCP Tunnel 常驻部署使用
+本仓库可独立部署，固定飞书 SHA 与随源码发行的 core 包。正式 Secure MCP Tunnel 常驻部署使用
 `node --env-file=/受保护路径/lark.env scripts/run-tunnel-live.js --confirm-live-owner-bridge`，
-配置为 tunnel-service/live/long-connection，MCP 仅 loopback；共享聚合路由器位于 QQ 仓库，
-QQ 入口只用 readiness，不能把克隆共享源码当作开启 QQ 收发的授权。
-处理提示、媒体和群配置见 [chat-experience.md](chat-experience.md)。
+配置为 tunnel-service/live/long-connection，MCP 仅 loopback；聚合入口为本仓库
+`scripts/run-tunnel-router.js --confirm-live`，只注册飞书。无需 QQ 后端、凭据或源码。
+安装与迁移见 [core](core.md)，处理提示、媒体和群配置见 [chat-experience.md](chat-experience.md)。
 下文 OAuth 与旧模板保留为历史资料，本次不可照搬为 ExecStart。
 
 交接目标是由主线程在获准的云机器/持续容器中运行，用户电脑只用于初始批准或扫码。此仓库没有选择云供应商、创建资源、构建发布镜像或将本机运行当作云托管。
@@ -75,6 +75,9 @@ SIGTERM 后等待至少 45 秒，不在 worker 正在发送时删卷。重启事
 验收需要云端实例持续运行时，主人电脑离线后仍由同一目标 dot 完成一条真实原私聊回复，并检查重启、撤销和 uncertain 状态。源包、fixture 测试和 200 health 都不能替代该验收。
 
 
-## 双仓库源码交付
+## 独立源码交付
 
-飞书源码 ZIP 不是独立运行包。交付时同时提供已审核的 QQ 仓库提交，解压或克隆为同级 `dot-lark-bridge/` 和 `dot-qq-bridge/`，保留 QQ 仓库内的 `packages/dot-bridge-transport/`。两仓库各自保留锁定提交，交接时记录两者 SHA；不依赖第三个 Git 外 shared 目录。`config/tunnel-service.readiness.yaml` 仅包含公开占位模板，真实 Tunnel ID 和文件引用应写入仓库外的私有副本。
+源码 ZIP 已包含锁定 core 发行包，可以独立安装和运行测试。记录飞书 SHA、core 版本、
+core 源码 revision 与发行包 SHA-256；不需要 QQ 仓库或 core 源码 clone。
+`config/tunnel-service.readiness.yaml` 仅含公开占位模板，真实 Tunnel profile 使用仓库外
+受保护副本。详见 [公共组件](core.md)。

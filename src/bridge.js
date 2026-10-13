@@ -7,7 +7,7 @@ import { webhookHeaders, webhookKey } from './signatures.js';
 import { destinationUrl, callbackTransportStatus, TRANSPORT_ERROR_CODES } from './network.js';
 import { Store } from './store.js';
 import { createLarkSender } from './lark.js';
-import { larkToolDefinitions, larkEventArguments, larkEventPayload, validateLarkArguments, LARK_TOOL_NAMES } from '../../dot-qq-bridge/packages/dot-bridge-tunnel/src/lark-contract.js';
+import { larkToolDefinitions, larkEventArguments, larkEventPayload, validateLarkArguments, LARK_TOOL_NAMES } from './tunnel-contract.js';
 import { MAX_REPLY_TEXT, routeAllowed } from './interaction-policy.js';
 import { conversationReference, messageContext } from './conversation-store.js';
 import { InteractionState } from './interaction-state.js';

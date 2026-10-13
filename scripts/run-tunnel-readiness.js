@@ -1,6 +1,6 @@
 import { readTunnelReadinessConfig } from '../src/config.js';
 import { createApp } from '../src/server.js';
-import { supervisedStop } from '../../dot-qq-bridge/packages/dot-bridge-platform/supervised-stop.js';
+import { supervisedStop } from '@dot-bridge/core/platform/supervised-stop.js';
 let app, stopSupervision = () => {};
 try {
   const config = readTunnelReadinessConfig();

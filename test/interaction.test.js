@@ -5,7 +5,7 @@ import {validateInteractionPolicy} from '../src/interaction-policy.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {privateMkdtempSync} from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import {privateMkdtempSync} from '@dot-bridge/core/platform/test-fixtures.js';
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=','base64');
 function policy(groups=[],overrides={}){return validateInteractionPolicy({version:1,enabled:true,reactions:true,render:'card',media:true,streaming:true,auto_card:false,bot_open_id:'fixture-bot',groups,...overrides});}
 function payload(f,id,{chat='fixture_private_chat',sender='fixture_lark_owner',text='测试',type='text',mentions=[],parent,...rest}={}){

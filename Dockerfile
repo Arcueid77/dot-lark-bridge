@@ -7,12 +7,10 @@ WORKDIR /opt/dot-lark-bridge
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3-pypdf util-linux openssl && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /data && chown node:node /data /opt/dot-lark-bridge
 COPY --chown=node:node package.json package-lock.json LICENSE ./
+COPY --chown=node:node vendor/ ./vendor/
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY --chown=node:node src/ ./src/
 COPY --chown=node:node scripts/ ./scripts/
-COPY --from=bridge_shared --chown=node:node /dot-bridge-transport/ /opt/dot-qq-bridge/packages/dot-bridge-transport/
-COPY --from=bridge_shared --chown=node:node /dot-bridge-platform/ /opt/dot-qq-bridge/packages/dot-bridge-platform/
-COPY --from=bridge_shared --chown=node:node /dot-bridge-tunnel/ /opt/dot-qq-bridge/packages/dot-bridge-tunnel/
 USER node
 VOLUME ["/data"]
 EXPOSE 3000

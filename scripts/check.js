@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const roots = ['src', 'scripts', 'test'];
 const files = roots.flatMap(root => fs.readdirSync(root, { recursive: true }).filter(file => file.endsWith('.js')).map(file => path.join(root, file)));
@@ -20,3 +21,11 @@ for (const file of documents) {
   }
 }
 process.stdout.write(`Checked local links in ${documents.length} Markdown files.\n`);
+const release=JSON.parse(fs.readFileSync('vendor/core-release.json','utf8'));
+const core=JSON.parse(fs.readFileSync('node_modules/@dot-bridge/core/package.json','utf8'));
+const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+const artifact=fs.readFileSync(`vendor/dot-bridge-core-${release.version}.tgz`);
+if(release.package!=='@dot-bridge/core'||core.version!==release.version||!/^[a-f0-9]{40}$/.test(release.source_revision)||
+   createHash('sha256').update(artifact).digest('hex')!==release.sha256||
+   lock.packages['node_modules/@dot-bridge/core'].integrity!=='sha512-'+createHash('sha512').update(artifact).digest('base64'))throw Error('Core distribution or lockfile integrity differs');
+process.stdout.write('Verified installed core version, source revision and locked release artifact.\n');

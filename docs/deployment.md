@@ -4,10 +4,10 @@
 使用 `AUTH_MODE=tunnel-service`、`BRIDGE_MODE=tunnel`、`TUNNEL_SERVICE_OPERATION=live`、
 `TUNNEL_SERVICE_OWNER_ID=tunnel-owner:dot-bridge`、`LARK_TRANSPORT=long-connection`。
 配对凭据、独立 service key、STORAGE_KEY、数据库和锁均使用受保护文件/目录。
-聚合器和两个后端只监听 loopback；QQ 只用 readiness。持续运行服务使用普通非 root systemd，
+聚合器和飞书后端只监听 loopback；未部署渠道无需后端。持续运行服务使用普通非 root systemd，
 不设 `DOT_BRIDGE_SUPERVISED=1`，不把 stdin、SSH 或诊断窗口当作监督器。
 飞书新体验和群聊升级见 [chat-experience.md](chat-experience.md)。升级保留原状态，
-先固定两仓库 SHA、测试、备份，再启动；离线结果和真实实例验收分别记录。
+先固定飞书 SHA 与 core 发行版本、测试、备份，再启动；离线结果和真实实例验收分别记录。
 
 下文的 OAuth、反向代理、Sites 与 run-service 示例为其他历史部署方式，
 不能替代本次 Tunnel live 入口，也不能作为已部署或已验收的结论。
@@ -73,15 +73,15 @@ SQLite WAL 不能只复制正在写入的单个主文件。使用 SQLite 一致�
 正式运行现在必须先选 [tunnel 或 sites 模式](modes.md) 并配置同一私有锁目录。上述 OAuth/本地 MCP 要求适用于 tunnel；sites 模式本地 AUTH_MODE=deny、不开 HTTP/MCP，改由获准双凭据与当前用户订阅租约校验。
 
 
-## 同级源码与容器构建上下文
+## 独立源码与容器构建上下文
 
-源码运行需要同级 `dot-lark-bridge/` 和 `dot-qq-bridge/` 两个 clone；共享
-callback 传输位于 QQ 仓库的 `packages/dot-bridge-transport/`，不另建第三个仓库外目录。
-容器模板通过单独的只含公开 package 源码的 named build context 保留相同目录关系：
+只需 `dot-lark-bridge` 本仓库，固定版本 core 安装包已在 `vendor/`，lockfile 校验其 integrity。
+不需要 QQ 同级 clone、named build context 或第三个未受 Git 管理目录。
+常驻单飞书拓扑、聚合器环境及迁移见 [公共组件](core.md)。
 
 ```sh
-docker build --build-context bridge_shared=../dot-qq-bridge/packages -t dot-lark-bridge .
+docker build -t dot-lark-bridge .
 ```
 
-该命令在飞书仓库中执行，需要支持 named contexts 的 BuildKit。此轮只检查源码与离线测试，
-没有构建镜像；镜像模板仍须按正式部署审批和启动确认要求使用，不包含个人凭据。
+Dockerfile 复制 vendor 包后执行锁定安装，不包含私人凭据。此轮需要的真实部署使用
+systemd；镜像构建与容器运行仍需单独验收，不能把源码检查当作镜像已部署。

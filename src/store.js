@@ -6,7 +6,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BridgeError, canonical, hash } from './common.js';
 import { Vault } from './signatures.js';
-import { windowsPrivateDatabase, windowsPrivateDirectory } from '../../dot-qq-bridge/packages/dot-bridge-platform/index.js';
+import { windowsPrivateDatabase, windowsPrivateDirectory } from '@dot-bridge/core/platform';
 import { routeAllowed } from './interaction-policy.js';
 import { initializeConversationStore, details, saveDetails } from './conversation-store.js';
 import { createStreamRows, finalizeStream } from './interaction-state.js';

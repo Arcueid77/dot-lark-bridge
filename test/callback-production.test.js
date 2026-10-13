@@ -1,7 +1,7 @@
-import { cleanupPrivateFixture, beforeFixtureCleanup, privateMkdtempSync, fixtureChmodSync } from '../../dot-qq-bridge/packages/dot-bridge-platform/test-fixtures.js';
+import { cleanupPrivateFixture, beforeFixtureCleanup, privateMkdtempSync, fixtureChmodSync } from '@dot-bridge/core/platform/test-fixtures.js';
 import { BridgeError } from '../src/common.js';
 import { createLarkDispatcher } from '../src/lark-runtime.js';
-import { preflightCallbackTransport } from '../../dot-qq-bridge/packages/dot-bridge-transport/index.js';
+import { preflightCallbackTransport } from '@dot-bridge/core/transport';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';

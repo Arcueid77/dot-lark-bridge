@@ -1,4 +1,4 @@
-import {makeOwnerScopedProxyTransport} from '../../dot-qq-bridge/packages/dot-bridge-transport/owner-scoped.js';
+import {makeOwnerScopedProxyTransport} from '@dot-bridge/core/transport/owner-scoped.js';
 import {createServiceSender,makePublicRequester} from './network.js';
 import {assertCallbackMode,ownerScopedProxy} from './callback-mode.js';
 import {MAX_ATTACHMENT_BYTES} from './interaction-policy.js';

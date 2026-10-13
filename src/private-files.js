@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { windowsReadPrivateFile, windowsWritePrivateFile, windowsPrivateDestination } from '../../dot-qq-bridge/packages/dot-bridge-platform/index.js';
+import { windowsReadPrivateFile, windowsWritePrivateFile, windowsPrivateDestination } from '@dot-bridge/core/platform';
 
 const MAX_BYTES = 16384;
 const unavailable = () => new Error('Private file is unavailable or unsafe');
