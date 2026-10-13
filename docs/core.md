@@ -2,7 +2,7 @@
 
 飞书源码不再依赖 QQ 仓库、同级目录或 QQ readiness 后端。公共实现的唯一
 源码仓库是 `dot-bridge-core`，本仓库通过固定版本的 `@dot-bridge/core` 包使用。
-`vendor/dot-bridge-core-0.2.0.tgz` 是该版本的发行包，不在这里维护另一份公共源码。
+`vendor/dot-bridge-core-0.2.1.tgz` 是该版本的发行包，不在这里维护另一份公共源码。
 lockfile 固定其版本和 SHA-512 integrity；安装时不需要克隆 core 仓库。
 
 ```sh

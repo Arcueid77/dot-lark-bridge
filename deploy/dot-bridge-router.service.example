@@ -1,0 +1,28 @@
+[Unit]
+Description=Standalone Feishu loopback MCP router
+Wants=dot-bridge-lark.service
+After=dot-bridge-lark.service
+PartOf=dot-bridge.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=dot-bridge
+Group=dot-bridge
+WorkingDirectory=/opt/dot-bridge/dot-lark-bridge
+ExecStart=/opt/dot-bridge/runtime/node-v24.21.0-linux-x64/bin/node --env-file=/var/lib/dot-bridge/private/router.env /opt/dot-bridge/dot-lark-bridge/scripts/run-tunnel-router.js --confirm-live
+Environment=HOME=/var/lib/dot-bridge
+Environment=PATH=/opt/dot-bridge/runtime/node-v24.21.0-linux-x64/bin:/usr/bin:/bin
+UMask=0077
+StandardInput=null
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+KillSignal=SIGTERM
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/var/lib/dot-bridge/private

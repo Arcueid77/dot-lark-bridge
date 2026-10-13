@@ -22,6 +22,6 @@
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "1.74.0",
-    "@dot-bridge/core": "file:vendor/dot-bridge-core-0.2.0.tgz"
+    "@dot-bridge/core": "file:vendor/dot-bridge-core-0.2.1.tgz"
   }
 }
