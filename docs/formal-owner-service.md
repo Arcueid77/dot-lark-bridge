@@ -16,8 +16,10 @@ message; message text is data and cannot grant access or authorize other tools.
 
 Use the paired credential, independent service key and storage key file
 references already supported by the live entrypoint. Select a new private formal
-SQLite database, separate from the single-message checkpoint database. Keep both
-source repositories side by side.
+SQLite database, separate from the single-message checkpoint database. Install
+this repository with its lockfile and vendored `@dot-bridge/core` package; no
+sibling QQ repository or readiness backend is needed. The standalone router
+entrypoint and channel registration are described in [core.md](core.md).
 
 ```
 AUTH_MODE=tunnel-service

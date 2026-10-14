@@ -43,19 +43,22 @@ final-IP uncertainty. Sharing this candidate grants none of those permissions.
 The confirmed launcher requires `LARK_CREDENTIALS_FILE` (already paired),
 `LARK_EXPECTED_APP_ID`, `TUNNEL_SERVICE_KEY_FILE`, `BRIDGE_LOCK_DIRECTORY`,
 `OWNER_MESSAGE_FIXED_REPLY` and optional
-`OWNER_MESSAGE_PORT` (default 3102). It statically imports the experimental shared owner-message export from
-`../dot-qq-bridge/packages/dot-bridge-transport/experimental/owner-message.js`
-and the catalog from that sibling repository. Clone both repositories side by
-side; no third review-workspace tree is required. This remains an explicitly
+`OWNER_MESSAGE_PORT` (default 3102). It imports the code-selected experimental owner-message export from
+`@dot-bridge/core/transport/experimental/owner-message.js`. The pinned core
+release is included in this repository's `vendor/` directory and installed by
+the lockfile; no sibling QQ checkout or core source checkout is required.
+The Feishu catalog and adapter are maintained in this repository. See
+[core.md](core.md) for the standalone package boundary. This remains an explicitly
 scoped experiment, not ordinary production callback readiness.
 It does not accept an environment-selected module or adapter path. Callback
 hostname discovery is allowed only after the fixed local principal is
 successfully authenticated; the shared experiment then locks the complete URL.
 The ordinary bridge's allowlist and production preflight remain unchanged.
 
-Full offline shared integration uses `OWNER_MESSAGE_TRANSPORT_SOURCE` only in
-the test harness to name the reviewed factory file. That variable is never read
-by a runtime. The tests inject a fake CONNECT operation and fake provider replies;
+Offline session integration resolves the installed core experimental export
+by default. `OWNER_MESSAGE_TRANSPORT_SOURCE` remains a test-harness override for
+a reviewed factory file; it is not required for a standalone install and is
+never read by a runtime. The tests inject a fake CONNECT operation and fake provider replies;
 passing does not demonstrate real TLS/provider delivery or final proxy IP binding.
 
 The candidate launcher selects the reviewed shared factory with the code-only
@@ -94,11 +97,12 @@ tenant and freshness. It starts its five-minute window only when the connection
 is ready, persists routing identity only, and sends no reply or MCP event.
 The bounded message experiment is a separate explicit invocation after pairing.
 
-Source reproduction requires the complete sibling QQ checkout, including
-`packages/dot-bridge-platform` and `packages/dot-bridge-tunnel`, not only the
-transport package. The existing Docker recipe copies transport alone and is
-not a supported packaging route for this candidate; no container deployment
-is included or verified in this change.
+Source reproduction uses this repository and its pinned vendored core package.
+The current Docker recipe copies `vendor/` before locked installation; the old
+transport-only sibling build recipe no longer describes this branch. This does
+not establish that the isolated candidate works in a container: container build,
+runtime prerequisites and real delivery still require separate validation.
+The documentation review ran no repository code; see [validation.md](validation.md).
 
 The new waiting behavior is prepared offline and is not permission to start or
 extend a real service. Protocol leases remain finite; the task client must renew

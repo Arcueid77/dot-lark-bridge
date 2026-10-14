@@ -1,6 +1,10 @@
 # 架构
 
-原型没有另建 AI 助手。它只传递已验证文字与回答；事件由订阅所在的现有 dot 处理。数据库不保存 dot 记忆或模型会话。
+本桥没有另建 AI 助手。它传递经桥端身份与路由校验的消息及回答；事件由订阅所在的现有 dot 处理。数据库不保存 dot 记忆或模型会话。
+
+当前独立架构为：原官方 Secure MCP Tunnel → `@dot-bridge/core` 聚合器 → 本仓库飞书 live 后端。公共 callback 传输、平台保护和路由来自固定发行包；飞书 schema 与适配器留在本仓库，不需要 QQ 源码或 readiness 后端，见 [core.md](core.md)。
+
+下图及纯文本入站说明描述默认本人私聊兼容路径。增强策略开启后还可接受获批富文本、引用、媒体和群触发，仍按原会话授权；条件及工具见 [chat-experience.md](chat-experience.md)。图中的 OAuth 是兼容 HTTP 路径，正式 Tunnel live 使用受保护 service key 与 loopback 聚合/后端。
 
 ```mermaid
 sequenceDiagram
@@ -35,9 +39,9 @@ sequenceDiagram
 
 ## MCP 与订阅
 
-`src/server.js` 实现无状态 HTTP MCP 2.0 请求校验；`auth.js` 是资源服务器。只有已配置的 OAuth `sub`、正确发行方/资源 audience/scope/签名/期限可调用工具或订阅。`clientInfo` 不参与身份认证。
+`src/server.js` 实现无状态 HTTP MCP 2.0 请求校验；`auth.js` 是资源服务器。兼容 OAuth 路径要求已配置的 `sub`、正确发行方/资源 audience/scope/签名/期限；Tunnel service 路径使用固定本地 owner 和受保护 service key。`clientInfo` 不参与身份认证。
 
-只有一个 active callback。订阅 ID 来自主体、URL、事件名和规范化参数；签名 challenge 成功后才激活。回调必须在明确主机白名单中，连接时重新查 DNS 并锁定公网地址、保留 TLS SNI，不跟随跳转。
+只有一个 active callback。`conversation:owner` 限于绑定本人私聊；`conversation:configured` 可包含受保护交互策略批准的群，订阅参数本身不授予群权限。订阅 ID 来自主体、URL、事件名和规范化参数；签名 challenge 成功后才激活。standard 路径的 callback 按受保护策略校验，直连时重新查 DNS 并锁定公网地址、保留 TLS SNI，不跟随跳转。显式 owner-scoped proxy 路径有不同授权与重试边界，见 [formal-owner-service.md](formal-owner-service.md)，不能把其未验证的最终目的 IP 当成直连绑定。
 
 每次重新激活已撤销或到期订阅都会产生新的 generation，旧消息不能重新被 read/reply 授权。持久 epoch 阻止并发验证请求在 unsubscribe 后晚到并重新激活。正常到期前刷新保持 generation；签名密钥轮换在 5 分钟内双签。
 

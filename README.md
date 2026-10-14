@@ -38,13 +38,15 @@ npm.cmd run simulate
 
 模拟器走真实 SDK `EventDispatcher` 解析、数据库、本地 HTTP MCP、签名与队列；外部回调和发送由注入的 fixture 接收器处理。它没有证明真实 WebSocket、当前 dot 或飞书账户可用。验证范围见 [docs/validation.md](docs/validation.md)。
 
-## 最小能力
+## 默认兼容模式与共同边界
+
+未设置 `LARK_INTERACTION_POLICY_FILE` 时保留本人私聊纯文字兼容模式，表情、媒体、卡片流式及群规则默认关闭。以下入站限制描述该默认模式，不是当前分支全部能力的上限。显式启用受保护交互策略后，可使用 [聊天体验](docs/chat-experience.md) 中的富文本、引用/上下文、媒体、卡片和获批群规则；增强功能要求 standard Tunnel 模式，仍需对应飞书权限与真实验收。
 
 - 官方 `@larksuiteoapi/node-sdk` **1.74.0** `WSClient`，只接 `im.message.receive_v1`；没有公网飞书入站 webhook。
 - 必须明确配置一个应用、一个租户、主人 `open_id`、原私聊 `chat_id` 和一个 MCP 主体；缺任何身份默认拒绝，不从第一条消息自动认领主人。
 - 只接本人 `p2p` 纯文字。群聊、其他人、机器人、附件、富文本、引用和 mentions 不进入队列。
 - SQLite WAL / FULL 事务、消息及事件双重去重、持久订阅、频控、重启恢复、撤销检查；先提交队列，再由 SDK ACK。
-- 事件 `lark.message.created` 只接受 `{"conversation":"owner"}`。`get_lark_message` 和 `reply_to_lark` 仅访问本订阅已尝试投递的 verified message ID。
+- 事件 `lark.message.created` 支持 `{"conversation":"owner"}` 和 `{"conversation":"configured"}`。`owner` 仅投递绑定的本人私聊；`configured` 才允许投递受保护策略批准的群及触发条件，不会自行开启群聊。读取和回复仍受当前订阅、原消息身份与期限约束。
 - 回复 API 固定为原 `message_id` 的 `/reply`；工具没有收件人、URL、租户或任意聊天参数。一条消息只允许一份回答，相同回答幂等。
 - 默认本地回复期限 900 秒、每分钟各 10 条入站/回复、队列 100 项、最多 5 次远端尝试。期限是本桥策略，不是飞书的被动回复窗口。
 - 不确定的回复 ACK、5xx、损坏响应或中断发送进入 `uncertain`，不自动重发；MCP 事件按稳定 event ID 有界重试。
@@ -53,14 +55,16 @@ npm.cmd run simulate
 
 ## 配置与服务
 
-先读 [真实接入清单](docs/activation.md)，在获准的秘密存储中填入配置后运行：
+正式 Secure MCP Tunnel 单飞书拓扑为：原 dot → 原官方 Tunnel → `@dot-bridge/core` 聚合器 → 飞书 live 后端；本仓库 `scripts/run-tunnel-router.js` 只注册飞书适配器，不需要 QQ readiness 进程。正式入口与受保护配置见 [公共组件](docs/core.md) 和 [部署](docs/deployment.md)。
+
+下列 `npm start` / OAuth 说明保留为兼容 HTTP 服务路径，不能替代上述 Tunnel live 入口。先读 [真实接入清单](docs/activation.md)，在获准的秘密存储中填入配置后运行：
 
 ```powershell
 Copy-Item .env.example .env
 npm.cmd start
 ```
 
-空模板是 `AUTH_MODE=deny` / `LARK_TRANSPORT=disabled`；没有合法 `STORAGE_KEY` 时拒绝启动。`dev` 仅允许 loopback 合成测试且禁用真实长连接。生产使用 `oauth` + `long-connection`；本项目验证已有发行方的 RS256 JWT，不创建 OAuth 服务或账户。
+空模板是 `AUTH_MODE=deny` / `LARK_TRANSPORT=disabled`；没有合法 `STORAGE_KEY` 时拒绝启动。`dev` 仅允许 loopback 合成测试且禁用真实长连接。兼容 HTTP 服务使用 `oauth` + `long-connection`，验证已有发行方的 RS256 JWT，不创建 OAuth 服务或账户。官方 Tunnel live 路径使用 `AUTH_MODE=tunnel-service` + `BRIDGE_MODE=tunnel` + `TUNNEL_SERVICE_OPERATION=live`，聚合器和后端只监听 loopback。
 
 | 接口 | 用途 |
 | --- | --- |
@@ -83,8 +87,8 @@ npm.cmd start
 
 最终要摆脱用户电脑在线，需要真正的常驻云进程、持久磁盘、TLS 入口、出网和秘密管理，以及当前 dot 可用的插件/事件订阅。不是静态托管或短时函数。费用、供应商、发行方及真实身份仍需主线程确认。
 
-通用设计从 QQ 原型固定提交 `3578dd0bbc3c3fca12c610fb23c14d13ef77a193` 复用；QQ 工作树没有被修改。仓库原有 [MIT LICENSE](LICENSE) 保持不变，来源与依赖见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+通用设计的历史来源是 QQ 原型固定提交 `3578dd0bbc3c3fca12c610fb23c14d13ef77a193`；这项来源记录不是运行时依赖。本分支公共实现来自独立 `dot-bridge-core` 发行包，当前固定版本、源码 revision 与包校验记录见 [公共组件](docs/core.md)。仓库原有 [MIT LICENSE](LICENSE) 保持不变，来源与依赖见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 官方参考：[OpenAI MCP Events](https://developers.openai.com/plugins/build/mcp-events)、[飞书 Node SDK](https://github.com/larksuite/node-sdk)。官方协议支持此桥接方式；账户开通、当前 dot 的实际订阅位置和模型行为仍须真实联调验收。
 
-Windows 原生私有文件、数据库和模式锁使用 [core 安全平台层](docs/core.md)。Windows 需要已有 Python 与本地 NTFS；Linux 原有分支保留。Windows 离线结果不代表 Linux 或真实 dot 消息验收。
+Windows 原生私有文件、数据库和模式锁使用 [core 安全平台层](docs/core.md)。Windows 需要已有 Python 与本地 NTFS；Linux 原有分支保留。历史 Windows 离线结果不代表当前分支、Linux 或真实 dot 消息验收。本次文档核对未运行仓库代码；历史结果与当前待验证项分列于 [验证记录](docs/validation.md)。

@@ -5,6 +5,12 @@
 `vendor/dot-bridge-core-0.2.1.tgz` 是该版本的发行包，不在这里维护另一份公共源码。
 lockfile 固定其版本和 SHA-512 integrity；安装时不需要克隆 core 仓库。
 
+本次只读核对的分支代码基线为 `e05502e8f58b76922029f4db97276684f577357b`。
+`vendor/core-release.json` 记录包版本 `0.2.1`、core 源码 revision
+`fac9d7d05b6c0a5da20411d20963af5eb9c456fc` 和发行包 SHA-256
+`3f1c77376002432ebc748e4f32eeb559684b93a812c85e29cb0e16e43f02842a`。
+这些是仓库中的发行元数据，本次文档核对未解包、重新计算包 hash 或运行安装/测试。
+
 ```sh
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 npm run check
@@ -19,6 +25,11 @@ Python 与本地 NTFS，Linux 保留 descriptor-relative 文件校验。
 飞书的工具/事件 schema、上下文、群聊规则、卡片、表情和媒体协议由
 `src/tunnel-contract.js` 与 `src/tunnel-adapter.js` 持有。core 不导入飞书或 QQ
 SDK；启动入口在代码中显式注册受审查的适配器，不能从环境或请求加载任意模块。
+`src/network.js` 从 `@dot-bridge/core/transport` 使用公共 callback 传输；
+`src/bridge-mode.js` 使用 core 平台模式锁；`scripts/run-tunnel-router.js`
+从 `@dot-bridge/core/router/main.js` 启动聚合器并注册本仓库的 `larkAdapter`。
+独立包架构不会改变默认本人私聊策略；增强交互与获批群的启用条件见
+[聊天体验](chat-experience.md)。
 
 ## 单飞书拓扑
 
@@ -51,6 +62,8 @@ STORAGE_KEY、主人绑定、群规则、有效订阅、队列、去重及 uncer
 已经发布的同名版本。保留 core Git revision、发行包 hash 和飞书 Git revision。
 独立验证应解压飞书提交到没有 QQ/core 源码仓库的目录，运行锁定安装和完整测试。
 `test/standalone-router.test.js` 必须实际运行，不能因缺少兄弟路径而 skip。
+该文件已有不依赖 QQ 后端的合成集成场景；存在测试源码不等于本次执行通过。
+历史测试与本分支待验证清单见 [validation.md](validation.md)。
 
 离线回归不代表原 dot 已订阅、飞书网关已连接或真实消息已回复。切换后的验收
 仍需检查 authenticated catalogs、官方 Tunnel、有效订阅、网关和同一原聊天的回复。

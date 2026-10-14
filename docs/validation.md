@@ -1,4 +1,42 @@
-# 本地验证记录
+# 验证记录与待验收项
+
+## 2026-10-14 独立 core 分支文档核对（只读源码，未运行测试）
+
+核对代码基线：`feat/standalone-core` 的
+`e05502e8f58b76922029f4db97276684f577357b`。本次只通过 GitHub 读取仓库源码、
+锁文件与现有文档，修正文档后提交；没有安装依赖、执行 check/test/simulate、
+构建容器、部署服务或发送真实飞书测试消息。
+
+源码与元数据可确认：
+
+- `package.json` / `package-lock.json` 使用本仓库
+  `vendor/dot-bridge-core-0.2.1.tgz`；发行来源记录见 [core.md](core.md)。
+- `scripts/run-tunnel-router.js` 调用 core 路由器并只注册本仓库飞书适配器。
+  飞书 schema 与聚合投影分别位于 `src/tunnel-contract.js`、
+  `src/tunnel-adapter.js`，不再要求兄弟 QQ 仓库或 QQ readiness 进程。
+- 默认未加载交互策略时仍走本人私聊纯文字路径；受保护策略可启用富文本、
+  引用/上下文、媒体、表情、卡片及获批群规则。代码支持与实例已启用/已验收
+  是不同结论，条件见 [chat-experience.md](chat-experience.md)。
+- `test/standalone-router.test.js` 包含无 QQ 后端的合成集成场景：
+  群身份校验、configured 订阅、图片资源、上下文、同一卡片逐段更新与最终回复。
+  此处只确认测试源码存在，不声称该测试或当前完整套件已通过。
+
+当前版本仍须单独记录的验收证据：
+
+1. 在没有 QQ/core 源码 checkout 的干净目录运行锁定安装、check、完整 test 和
+   simulate，记录实际提交、Node/系统版本、通过/失败/跳过数；独立 router 测试不得跳过。
+2. 按目标 Windows 或 Linux 环境验证文件保护、锁、SQLite 与所需媒体工具；
+   旧 Windows 结果不能替代当前 Linux 或新 core 包验证。
+3. 在获批目标实例检查 authenticated catalogs、官方 Tunnel、有效订阅、真实 SDK
+   网关，以及同一原聊天的收发；按启用功能逐项验收媒体、引用、群规则与卡片。
+4. 验证优雅重启、去重、uncertain 不重发及状态保留；容器构建和容器运行若采用，
+   另记结果。健康检查、callback 2xx 和源码审查均不是端到端验收。
+
+以下保留原有历史记录，不把其结果外推为上述基线的测试报告；也不据此断言某个
+当前运行实例已连接或未连接。尤其 **77/77 仅属于下列 2026-10-02 记录**。
+后续无独立日期/提交的旧条目保持原文语境，不代表本次重新执行。
+
+## 2026-10-02 历史本地验证
 
 日期：2026-10-02；Windows 独立工作区；Node.js 24.15.0 / npm 11.12.1。测试使用合成身份、合成 token、进程内测试 RSA 与本机 loopback。没有访问真实飞书、OpenAI、OAuth 账户或 dot。
 
@@ -13,7 +51,7 @@
 
 环境默认 npm mirror 不提供 advisory endpoint，第一次 audit 返回 404；随后直接用官方 registry 完成只读审计，没有执行 audit fix 或修改全局 npm 设置。lockfile 使用官方 registry URL。
 
-## 已覆盖的行为
+## 历史测试记录覆盖的行为
 
 - 真正的 pinned SDK `EventDispatcher` V2 normalization，以及在不联网条件下调用官方 `WSClient.handleEventData`：持久事务后 success ACK，无 active 订阅时 error ACK。
 - App/租户/主人/私聊/字段缺失与覆盖拒绝；群聊、其他人、bot、附件、富文本、引用、mentions 不入队；坏时间、超长文字和无 ID 拒绝。
@@ -26,7 +64,7 @@
 - 原始 SDK payload / WSS URL / 错误细节不记录；正文与 callback secret 不以明文进入测试库。
 - 注册向导离线 plan、显式执行门槛、minimal tenant grants、新私有文件与禁止覆盖、凭据不输出、取消/拒绝/过期/品牌切换、未配对文件及身份冲突拒绝。
 - 官方 dispatcher 配对验证已知主人与租户、p2p 精确短期口令、原 header、防抢配对/重放/过期；成功或取消后关闭假 WSS transport，不启动 MCP/发送消息。
-- 脱敏本地状态与获准 app-token/bot-info probe 的注入假响应；正常生产仍要求 OAuth，关闭期间的 endpoint discovery 不能恢复连接。
+- 脱敏本地状态与获准 app-token/bot-info probe 的注入假响应；当时的兼容 HTTP 生产路径要求 OAuth，关闭期间的 endpoint discovery 不能恢复连接；当前 Tunnel live 配置见 [core.md](core.md)。
 
 模拟输出明确为：
 
@@ -45,7 +83,7 @@
 }
 ```
 
-## 仍待真实验收
+## 当时仍待真实验收
 
 SDK WSS 握手/断线重投、真实应用权限/启用和绑定、OAuth 流程/刷新/撤销、目标同一个 dot 的插件事件订阅及模型回应、飞书 UI 原私聊位置、云端实例与持久卷、电脑离线场景，均未验证。Docker 未构建，插件模板仅 JSON 解析，没有实际安装或发布。
 
@@ -61,7 +99,7 @@ SDK WSS 握手/断线重投、真实应用权限/启用和绑定、OAuth 流程/
 - 现新增持续服务与私有存储入口，仅离线实现/测试。长期凭据保存、tenant/owner/chat 绑定、OAuth、真实 MCP Events 订阅、持续运行环境及同一个 dot 往返仍未验证。gateway ready、进程心跳和真实模型回答互不等价。
 
 
-## 双模式合成验证与正式保存尝试
+## 历史补充：双模式合成验证与正式保存尝试
 
 - tunnel/sites 显式选择、共享应用锁、数据库模式绑定、Sites owner/subscription 租约、一次性claim加密持久化、过期与崩溃后 uncertain、ACK-only 恢复及关闭时等待入站均有离线覆盖。
 - 通过 `scripts/check-sites-contract.js` 对实际 Sites 本地路由/内存 D1 实现验证一条 Lark 事件回调、一条原消息回复和跨owner拒绝。外部网络、callback和飞书发送全部替换为合成实现，不能当作真实 dot 接通。
