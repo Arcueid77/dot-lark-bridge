@@ -1,5 +1,9 @@
 # 架构
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 本桥没有另建 AI 助手。它传递经桥端身份与路由校验的消息及回答；事件由订阅所在的现有 dot 处理。数据库不保存 dot 记忆或模型会话。
 
 当前独立架构为：原官方 Secure MCP Tunnel → `@dot-bridge/core` 聚合器 → 本仓库飞书 live 后端。公共 callback 传输、平台保护和路由来自固定发行包；飞书 schema 与适配器留在本仓库，不需要 QQ 源码或 readiness 后端，见 [core.md](core.md)。

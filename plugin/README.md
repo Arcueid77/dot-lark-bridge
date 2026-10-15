@@ -1,7 +1,7 @@
-# 手动接入模板（未安装）
+# 插件接入模板
 
-`plugin.json` / `mcp.json` 按 [官方 portable plugin 格式](https://developers.openai.com/plugins/build/plugins) 编写，端点 `https://bridge.example.invalid/mcp` 为不可用占位符。JSON 检查不代表通过客户端扫描或插件安装。
+[简体中文](README.md) | [English](README.en.md) | [首页](../README.md)
 
-后续获得主线程授权、完成云端 HTTPS 与 OAuth 后，替换为实际获批准端点，按 [连接与测试文档](https://developers.openai.com/plugins/deploy/connect-chatgpt) 在目标现有 dot 配置插件。需要扫描 tools/events、完成 OAuth、在该 dot 内明确订阅，随后执行 [真实接入验收](../docs/activation.md)。
+此目录保存手动接入模板，地址中的 `.invalid` 是占位符，JSON 能解析不代表插件已安装或发布。正式使用沿用操作者的原 dot 和官方 Secure MCP Tunnel，按[部署指南](../docs/deployment.md)配置真实目标并建立唯一事件订阅。
 
-没有本地 marketplace、自动安装脚本、技能自动授权或秘密文件。本次没有修改用户全局 `.agents` / `.codex`、注册客户端或产生持久权限。长期云端运行需要实际托管资源；本地模板目录不维持服务在线。
+不要把凭据、callback 地址或运行时 key 写进模板；客户端的 service header 使用受保护的聚合器 key 文件引用。应用授权、长期凭据和插件/事件权限按实际范围批准，不因模板存在而自动授予。

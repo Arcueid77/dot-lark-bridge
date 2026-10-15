@@ -1,5 +1,9 @@
 # 向主线程申请的最少真实授权
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 先确认用户是否已有应用。有则只取得其非秘密 App ID，优先复用官方已有应用扫码更新流程，不要求重复创建。开始扫码前需明确批准更新该应用的最小权限/事件配置，并允许官方把凭据返回云电脑内存；用户核对官方权限差异后确认。私有保存、绑定及长期运行单独批准。以下范围可逐步批准；“继续实现”不是账号或费用许可。
 
 | 范围 | 需主线程明确的内容 | 具体外部动作 |

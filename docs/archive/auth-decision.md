@@ -1,5 +1,9 @@
 # 最小试用的官方认证选择
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 截至 2026-10-02，已核实 [OpenAI 插件认证](https://developers.openai.com/plugins/build/auth) 与 [安全 MCP 隧道](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)。对目前的 HTTP 桥，**可以复用已有合规 OAuth 发行方，不必为此项目新建独立 OAuth 服务；尚未核实不需要任何发行方、同时可验证一名主人的官方接入路径。** 选用托管平台内置认证也需主线程验证它能给后端提供可信 owner 主体，不能仅凭云端来源就开放工具。
 
 | 官方能力 | 对本桥的意义 | 仍需处理 |

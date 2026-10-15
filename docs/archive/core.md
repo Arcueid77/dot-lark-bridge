@@ -1,5 +1,9 @@
 # 独立安装与公共组件
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 飞书源码不再依赖 QQ 仓库、同级目录或 QQ readiness 后端。公共实现的唯一
 源码仓库是 `dot-bridge-core`，本仓库通过固定版本的 `@dot-bridge/core` 包使用。
 `vendor/dot-bridge-core-0.2.1.tgz` 是该版本的发行包，不在这里维护另一份公共源码。

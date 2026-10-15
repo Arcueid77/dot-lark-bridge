@@ -1,6 +1,9 @@
 # 飞书聊天体验与群聊配置
 
-本功能继续使用同一个 dot、同一个官方 Secure MCP Tunnel 和原飞书应用。当前分支使用独立 `@dot-bridge/core` 发行包提供公共传输、平台保护和聚合路由，不依赖 QQ 仓库或 QQ readiness 后端。飞书工具/事件 schema 位于本仓库 `src/tunnel-contract.js`，聚合适配器位于 `src/tunnel-adapter.js`；`scripts/run-tunnel-router.js` 显式注册飞书适配器。安装与单飞书拓扑见 [core.md](core.md)。
+[简体中文](configuration.md) | [English](configuration.en.md) | [首页](../README.md)
+
+
+本功能继续使用同一个 dot、同一个官方 Secure MCP Tunnel 和原飞书应用。当前分支使用独立 `@dot-bridge/core` 发行包提供公共传输、平台保护和聚合路由，不依赖 QQ 仓库或 QQ readiness 后端。飞书工具/事件 schema 位于本仓库 `src/tunnel-contract.js`，聚合适配器位于 `src/tunnel-adapter.js`；`scripts/run-tunnel-router.js` 显式注册飞书适配器。安装与单飞书拓扑见 [部署指南](deployment.md)。
 
 下列增强体验是代码提供的可选能力，需启用受保护交互策略及对应权限。未设置 `LARK_INTERACTION_POLICY_FILE` 时保留本人私聊纯文字兼容模式，不自动启用媒体、表情、卡片或群聊。代码存在不代表目标实例已经启用或完成真实验收。
 
@@ -42,7 +45,7 @@
 node --env-file=/var/lib/dot-bridge/private/lark.env scripts/run-tunnel-live.js --confirm-live-owner-bridge
 ```
 
-在原环境文件中指定 `LARK_INTERACTION_POLICY_FILE=/var/lib/dot-bridge/private/lark-interactions-v1.json`。该文件及父目录必须分别为 0600、0700，属主是运行用户，普通单链接文件，不跟随符号链接。默认不提供此字段即保留原本人私聊模式。增强功能仅接受 `CALLBACK_TRANSPORT_MODE=standard` 的 Tunnel live 服务。
+在原环境文件中指定 `LARK_INTERACTION_POLICY_FILE=/var/lib/dot-bridge/private/lark-interactions-v1.json`。该文件及父目录必须分别为 0600、0700，属主是运行用户，普通单链接文件，不跟随符号链接；Windows 使用对应的私有 DACL 保护。默认不提供此字段即保留原本人私聊模式。增强功能仅接受 `CALLBACK_TRANSPORT_MODE=standard` 的 Tunnel live 服务。
 
 操作者脚本只通过 SSH 使用，没有面向模型的权限/配置工具，也不增加管理端口或新凭据：
 
@@ -91,6 +94,20 @@ node scripts/configure-interactions.js validate /var/lib/dot-bridge/private/lark
 
 Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg`、`python3`、`prlimit`，PDF 提取需官方发行版 `python3-pypdf`。子进程无 shell、只通过 stdin/stdout、20 秒/512 MiB/15 CPU 秒限制；不提取 ZIP 到磁盘、不获取文档外部资源，FFmpeg 协议仅允许 pipe。
 
-独立验证只需本仓库：在没有 QQ/core 源码 checkout 的目录执行锁定安装、`npm run check`、`npm test` 和 `npm run simulate`。确认 `test/standalone-router.test.js` 实际执行且不因兄弟路径缺失而跳过；其合成场景包含群触发、图片资源、上下文及同一卡片回复，不证明真实网关或模型理解能力。这里列的是验收步骤，本次文档更新未运行这些命令，历史结果见 [validation.md](validation.md)。通过离线验证并获准后才部署固定提交候选；仅运行一个飞书消费者，无需 QQ 后端。真实验收由本人发消息，分别检查表情、同一卡片、长文文件、引用、多轮、图片、文件、语音、获批群 @/关键词/全消息/成员拒绝、重启去重和断开 SSH；整台 VPS 重启需另获批。
+独立验证只需本仓库：在没有 QQ/core 源码 checkout 的目录执行锁定安装、`npm run check`、`npm test` 和 `npm run simulate`。确认 `test/standalone-router.test.js` 实际执行且不因兄弟路径缺失而跳过；其合成场景包含群触发、图片资源、上下文及同一卡片回复，不证明真实网关或模型理解能力。本页列出的是验收步骤，具体执行结果见 [validation.md](archive/validation.md)。通过离线验证并获准后才部署固定提交候选；仅运行一个飞书消费者，无需 QQ 后端。真实验收由本人发消息，分别检查表情、同一卡片、长文文件、引用、多轮、图片、文件、语音、获批群 @/关键词/全消息/成员拒绝、重启去重和断开 SSH；整台 VPS 重启需另获批。
 
 默认正文与回答七天逻辑清除；去重墓碑保留。WAL、数据库旧页、备份、系统日志仍可能保留加密历史，逻辑清除不是物理擦除。订阅到期由原 dot/平台按真实 refreshBefore 更新；桥没有另建自动续订任务。
+
+## 运行限制
+
+以下字段放在后端环境文件中，不放在聚合器环境中：
+
+| 字段 | 默认值 | 含义 |
+| --- | --- | --- |
+| `REPLY_TTL_SECONDS` | 900 | 本地回复期限（秒） |
+| `SUBSCRIPTION_TTL_SECONDS` | 86400 | 订阅寿命上限，还受请求 TTL 和已认证主体寿命约束 |
+| `QUEUE_LIMIT` | 100 | 队列容量 |
+| `INBOUND_PER_MINUTE` / `REPLIES_PER_MINUTE` | 10 / 10 | 每分钟入站/回复限流 |
+| `MAX_DELIVERY_ATTEMPTS` | 5 | 有界尝试数，不允许重发 uncertain 回复 |
+
+飞书另支持 `TEXT_RETENTION_SECONDS`，默认 604800 秒，不得短于回复期限。飞书的回复期限是桥的本地策略，不是声称平台存在对应被动回复窗口。

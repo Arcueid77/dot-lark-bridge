@@ -1,5 +1,9 @@
 # 官方扫码注册与本人单聊配对
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 已提供可审查、带显式执行门槛的操作向导。**2026-10-02 已验证现有应用官方扫码授权回传；随后一次获准的 15 秒 WSS 诊断超时，未证明长连接接通。未配对、未保存真实凭据、未启动正式服务。** 自动化测试使用合成数据、注入实现或本地模拟 TLS/代理；实测与离线测试分开记录。
 
 先运行无网络、无写入的预览：
@@ -8,7 +12,7 @@
 npm.cmd run setup -- plan
 ```
 
-默认命令也是 plan。源码在 [setup.js](../src/setup.js)；它调用官方 [Node SDK registerApp](https://github.com/larksuite/node-sdk#app-registration)，而不是模拟用户登录。开始任何真实命令前，应由主线程取得 [最少授权](authorization.md)。`--confirm-*` 仅表示操作者已获得该授权，不是替用户授权。
+默认命令也是 plan。源码在 [setup.js](../../src/setup.js)；它调用官方 [Node SDK registerApp](https://github.com/larksuite/node-sdk#app-registration)，而不是模拟用户登录。开始任何真实命令前，应由主线程取得 [最少授权](authorization.md)。`--confirm-*` 仅表示操作者已获得该授权，不是替用户授权。
 
 ## 已有应用：优先复用，不重建
 

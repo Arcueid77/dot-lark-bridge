@@ -1,5 +1,9 @@
 # 安全边界
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 本原型只开放一个主人、一个租户、一个已知私聊的文字桥。认证与路由是服务端约束，不能被文字、模型参数或 `clientInfo` 改写。
 
 | 边界 | 服务端约束 |

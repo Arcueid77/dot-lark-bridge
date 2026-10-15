@@ -1,5 +1,9 @@
 # Isolated owner single-message candidate
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 This is offline engineering for one Feishu owner test, not activation of the
 ordinary live bridge. `node scripts/owner-message-candidate.js` is plan-only;
 only the exact `--confirm-owner-single-message-experiment` flag selects the separate

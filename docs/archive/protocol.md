@@ -1,5 +1,9 @@
 # 官方协议核实
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 以下官方资料核实记录日期：2026-10-02；本次文档更新没有重新联网核实官方协议或执行 SDK 测试。当前独立包与代码能力边界见 [core.md](core.md)、[chat-experience.md](chat-experience.md)，历史测试及待验证项见 [validation.md](validation.md)。
 
 核实日期：2026-10-02。OpenAI 官方页面、飞书 SDK README、安装的 1.74.0 SDK 实现和类型声明均已检查。飞书网页依赖前端渲染，抓取正文为空的部分由官方 SDK 生成接口定义补充核对；没有把空网页或 search snippet 当作完整接口契约。

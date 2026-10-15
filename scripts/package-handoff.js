@@ -13,7 +13,7 @@ try {
   if (git('status', '--porcelain')) throw new Error('Commit reviewed changes first; working tree must be clean');
   const revision = git('rev-parse', 'HEAD');
   const allowlist = ['src', 'scripts', 'test', 'docs', 'plugin', 'deploy', '.env.example', '.gitignore', '.dockerignore',
-    'config/tunnel-service.readiness.yaml', 'vendor', 'README.md', 'THIRD_PARTY_NOTICES.md', 'LICENSE', 'package.json', 'package-lock.json', 'Dockerfile'];
+    'config/tunnel-service.readiness.yaml', 'vendor', 'README.md', 'README.en.md', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.en.md', 'LICENSE', 'package.json', 'package-lock.json', 'Dockerfile'];
   const entries = git('ls-tree', '-r', '--name-only', 'HEAD', '--', ...allowlist).split('\n');
   if (entries.some(entry => /(^|\/)(?:\.env|\.secrets|data|node_modules|handoff)(?:\/|$)/.test(entry))) throw new Error('Non-source entry found');
   const directory = path.join(root, 'handoff');

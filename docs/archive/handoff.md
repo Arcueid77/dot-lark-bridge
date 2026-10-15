@@ -1,5 +1,9 @@
 # 云端源码交接与启动
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 本仓库可独立部署，固定飞书 SHA 与随源码发行的 core 包。正式 Secure MCP Tunnel 常驻部署使用
 `node --env-file=/受保护路径/lark.env scripts/run-tunnel-live.js --confirm-live-owner-bridge`，
 配置为 tunnel-service/live/long-connection，MCP 仅 loopback；聚合入口为本仓库
@@ -62,7 +66,7 @@ node --env-file=/run/secrets/dot-lark.env scripts/doctor.js
 node --env-file=/run/secrets/dot-lark.env scripts/status.js
 ```
 
-提供 [systemd 审核模板](../deploy/dot-lark-bridge.service.example)，需主线程确认用户/源码位置/secret mount 和服务启用后再安装。它设置单服务、0700 状态目录、45 秒优雅停止、失败重启与文件系统限制；不会自动创建账户或开启服务。Docker 模板也可使用，构建/registry/镜像 digest、卷、代理与费用由主线程批准。
+提供 [systemd 审核模板](../../deploy/dot-lark-bridge.service.example)，需主线程确认用户/源码位置/secret mount 和服务启用后再安装。它设置单服务、0700 状态目录、45 秒优雅停止、失败重启与文件系统限制；不会自动创建账户或开启服务。Docker 模板也可使用，构建/registry/镜像 digest、卷、代理与费用由主线程批准。
 
 ## 入口、监控和恢复
 

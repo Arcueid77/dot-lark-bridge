@@ -1,5 +1,9 @@
 # 真实接入清单（未执行）
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 本次仅授权代码、本地模拟和本地提交。下列涉及账户、长期权限、发布或费用的步骤应先向主线程报告具体配置与范围，取得对应授权再执行。仓库中的例子不会自动注册或绑定身份。
 
 ## 必备资源

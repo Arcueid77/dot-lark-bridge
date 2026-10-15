@@ -1,5 +1,9 @@
 # 两种明确的桥接模式（当前仅私有合成测试）
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 `BRIDGE_MODE=tunnel|sites` 是正式入口的必选项；空值、auto、both 均不能启动。不存在失败后切换，或同一应用两路并行消费。`scripts/run-service.js --confirm-persistent-service` 统一选择单一运行时；旧 `src/main.js` 不允许启动真实长连接。
 
 ## tunnel

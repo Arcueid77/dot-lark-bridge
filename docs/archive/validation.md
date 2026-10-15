@@ -1,5 +1,9 @@
 # 验证记录与待验收项
 
+> 历史归档 / Historical archive: 保留原始语言及当时的适用范围，不作为当前部署指南。
+> This record retains its original language and dated scope. Start with the [current guide](../deployment.en.md) / [现行指南](../deployment.md).
+
+
 ## 2026-10-15 Windows 独立完整回归
 
 基于 `e2f0b4ffb8b66febc191fd361e85e642e6b500d4` 的修复工作树，
