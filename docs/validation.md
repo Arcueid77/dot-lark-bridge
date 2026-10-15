@@ -1,5 +1,31 @@
 # 验证记录与待验收项
 
+## 2026-10-15 Windows 独立完整回归
+
+基于 `e2f0b4ffb8b66febc191fd361e85e642e6b500d4` 的修复工作树，
+使用 Windows、本地 NTFS、Node 24.15.0 和已有 OpenSSL 3.5.6。
+从受 Git 管理的文件创建独立源码副本，不包含 QQ/core 源码 checkout、
+私有环境、凭据或数据库；安装包仍固定为 core 0.2.1。
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 独立锁定安装 | `npm ci --omit=dev --ignore-scripts --no-audit --no-fund --offline` 通过，使用已有缓存 |
+| `npm run check` | 103 个 JavaScript 文件、JSON、20 份 Markdown 本地链接及 core 发行包/integrity 检查通过 |
+| 独立目录 `npm test` | 总计 275：260 通过、0 失败、15 跳过 |
+| 独立聚合集成 | 实际执行并通过，无 QQ 后端或兄弟路径跳过 |
+| `npm run simulate` | SDK dispatcher、HTTP MCP、签名事件及一次原会话合成回复通过 |
+| 原失败文件专项 | 12 通过、0 失败、5 个 Linux 专用用例跳过 |
+
+15 个跳过项全部有平台原因：原有 10 项 Linux 私有文件硬化检查，以及
+5 项已明确限定 Linux 的 POSIX 文件交接报告器测试。后者不属于 Windows
+应用凭据存储能力，见 [辅助程序边界](owner-single-message-candidate.md)。
+其余模式锁、配对和恢复用例使用 core 的真实 Windows 私有 DACL fixture；
+清理先关闭会话/SQLite 句柄，再删除临时目录，未放宽运行时安全校验。
+
+本轮没有修改飞书收发运行代码、锁文件或 core 包，也未执行更新后的 Linux
+回归、Docker 构建/容器运行、服务切换或新的真实消息验收。此记录仅证明
+上述离线范围；保留原实例的订阅、网关、媒体/群规则和真实收发验收边界。
+
 ## 2026-10-14 独立 core 分支文档核对（只读源码，未运行测试）
 
 核对代码基线：`feat/standalone-core` 的

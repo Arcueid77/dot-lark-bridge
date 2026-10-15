@@ -1,5 +1,6 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import test from 'node:test';import assert from 'node:assert/strict';import os from 'node:os';import path from 'node:path';
 import {createScannedOwnerPairingSession,pairScannedOwner} from '../src/setup.js';
+import {privateMkdtempSync,cleanupPrivateFixture} from '@dot-bridge/core/platform/test-fixtures.js';
 const credentials={version:1,status:'unbound',appId:'cli_0123456789abcdef',appSecret:'synthetic-private-secret',ownerOpenId:'known_scanner'};
 function payload(text,now,change={}){const p={schema:'2.0',header:{app_id:credentials.appId,tenant_key:'verified_tenant',event_type:'im.message.receive_v1',event_id:'event',create_time:String(now)},event:{sender:{sender_type:'user',sender_id:{open_id:credentials.ownerOpenId},tenant_key:'verified_tenant'},message:{message_id:'m',chat_id:'private_chat',chat_type:'p2p',message_type:'text',create_time:String(now),content:JSON.stringify({text})}}};change.apply?.(p);return p;}
 test('scanned owner challenge proves matching event tenant and private chat without tenant API',async()=>{
@@ -18,7 +19,7 @@ test('unknown scan owner and expired/cancelled challenge fail closed',async()=>{
  const c=createScannedOwnerPairingSession(credentials);c.cancel();assert.equal((await c.dispatcher.invoke(payload(c.challenge,Date.now()),{needCheck:false})).outcome,'ignored');
 });
 test('bounded scanned-owner flow displays challenge only after real ready callback and saves paired file once',async t=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'scanned-owner-'));fs.chmodSync(dir,0o700);t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let report,dispatcher,challenge,saved,closed=0;
+ const dir=privateMkdtempSync(path.join(os.tmpdir(),'scanned-owner-'));cleanupPrivateFixture(t,dir);let report,dispatcher,challenge,saved,closed=0;
  const result=pairScannedOwner({credentials,expectedAppId:credentials.appId,confirmed:true,bindingFile:path.join(dir,'paired.json'),report:event=>{if(event.private_text_to_send)challenge=event.private_text_to_send;},save(_file,c){assert.equal(saved,undefined);saved=c;},connectionFactory(_c,d,o){dispatcher=d;report=o.report;return{async start(){},close(){closed++;}};}});
  await Promise.resolve();assert.equal(challenge,undefined);assert.equal((await dispatcher.invoke(payload('anything',Date.now()),{needCheck:false})).outcome,'ignored');report('lark_connected');assert.ok(challenge);
  await dispatcher.invoke(payload(challenge,Date.now()),{needCheck:false});const status=await result;assert.equal(status.owner_binding_complete,true);assert.equal(closed,1);assert.equal(saved.status,'paired');assert.equal(saved.tenantKey,'verified_tenant');
@@ -31,7 +32,7 @@ test('arbitrary ordinary text binds only exact scanner and messages created afte
  assert.equal((await s.dispatcher.invoke(payload(SCANNED_OWNER_TEST_TEXT,now),{needCheck:false})).outcome,'ignored');
 });
 test('ordinary test-message flow does not arm or display text before actual SDK ready',async t=>{
- const {pairScannedOwnerTestMessage,SCANNED_OWNER_TEST_TEXT}=await import('../src/setup.js');const dir=fs.mkdtempSync(path.join(os.tmpdir(),'test-owner-bind-'));fs.chmodSync(dir,0o700);t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const {pairScannedOwnerTestMessage,SCANNED_OWNER_TEST_TEXT}=await import('../src/setup.js');const dir=privateMkdtempSync(path.join(os.tmpdir(),'test-owner-bind-'));cleanupPrivateFixture(t,dir);
  let now=Date.now(),report,dispatcher,text,saved;const run=pairScannedOwnerTestMessage({credentials,expectedAppId:credentials.appId,confirmed:true,bindingFile:path.join(dir,'paired.json'),clock:()=>now,report:event=>{if(event.phase==='owner_message_ready')text='any';},save(_p,c){saved=c;},connectionFactory(_c,d,o){report=o.report;dispatcher=d;return{async start(){},close(){}};}});
  await Promise.resolve();assert.equal(text,undefined);const early=payload(SCANNED_OWNER_TEST_TEXT,now);assert.equal((await dispatcher.invoke(early,{needCheck:false})).outcome,'ignored');now+=1000;report('lark_connected');assert.equal(text,'any');
  assert.notEqual((await dispatcher.invoke(early,{needCheck:false})).outcome,'paired');await dispatcher.invoke(payload(SCANNED_OWNER_TEST_TEXT,now),{needCheck:false});await run;assert.equal(saved.status,'paired');

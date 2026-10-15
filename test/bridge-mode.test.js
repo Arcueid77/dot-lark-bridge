@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readBridgeMode, bridgeModePlan, createSelectedRuntime } from '../src/bridge-mode.js';
+import { privateMkdtempSync, cleanupPrivateFixture, beforeFixtureCleanup } from '@dot-bridge/core/platform/test-fixtures.js';
 
 test('production bridge mode is explicit, exclusive and has no permissive aliases or defaults', () => {
   assert.equal(readBridgeMode({}), null); assert.throws(() => readBridgeMode({}, { required: true }));
@@ -18,25 +19,25 @@ test('single factory selection never starts two modes or falls back when selecte
 });
 
 
-test('new locks record process identity without reclaiming an existing lock', async () => {
+test('new locks record process identity without reclaiming an existing lock', async t => {
   const fs = await import('node:fs');
   const os = await import('node:os');
   const path = await import('node:path');
   const { acquireModeLock } = await import('../src/bridge-mode.js');
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lark-lock-'));
-  try {
-    const release = acquireModeLock(directory, 'lark', 'fixture', 'tunnel');
-    const file = path.join(directory, fs.readdirSync(directory)[0]);
-    const original = fs.readFileSync(file, 'utf8');
-    const lock = JSON.parse(original);
-    assert.equal(lock.pid, process.pid);
-    if (process.platform === 'linux') {
-      assert.match(lock.pid_namespace, /^pid:\[\d+\]$/);
-      assert.match(lock.process_start_ticks, /^\d+$/);
-      assert.match(lock.boot_id, /^[a-f0-9-]{36}$/);
-    }
-    assert.throws(() => acquireModeLock(directory, 'lark', 'fixture', 'sites'));
-    assert.equal(fs.readFileSync(file, 'utf8'), original);
-    release(); assert.deepEqual(fs.readdirSync(directory), []);
-  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  const directory = privateMkdtempSync(path.join(os.tmpdir(), 'lark-lock-'));
+  cleanupPrivateFixture(t, directory);
+  const release = acquireModeLock(directory, 'lark', 'fixture', 'tunnel');
+  beforeFixtureCleanup(t, release);
+  const file = path.join(directory, fs.readdirSync(directory)[0]);
+  const original = fs.readFileSync(file, 'utf8');
+  const lock = JSON.parse(original);
+  assert.equal(lock.pid, process.pid);
+  if (process.platform === 'linux') {
+    assert.match(lock.pid_namespace, /^pid:\[\d+\]$/);
+    assert.match(lock.process_start_ticks, /^\d+$/);
+    assert.match(lock.boot_id, /^[a-f0-9-]{36}$/);
+  }
+  assert.throws(() => acquireModeLock(directory, 'lark', 'fixture', 'sites'));
+  assert.equal(fs.readFileSync(file, 'utf8'), original);
+  release(); assert.deepEqual(fs.readdirSync(directory), []);
 });

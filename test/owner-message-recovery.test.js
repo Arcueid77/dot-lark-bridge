@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../src/store.js';
@@ -11,7 +10,7 @@ import {createOwnerMessageRuntime} from '../src/owner-message-runtime.js';
 import {config} from './helpers.js';
 import {hash} from '../src/common.js';
 import * as shared from '@dot-bridge/core/transport/experimental/owner-message.js';
-import {privateMkdtempSync,cleanupPrivateFixture} from '@dot-bridge/core/platform/test-fixtures.js';
+import {privateMkdtempSync,cleanupPrivateFixture,beforeFixtureCleanup} from '@dot-bridge/core/platform/test-fixtures.js';
 const credentials={version:1,status:'paired',appId:'cli_0123456789abcdef',appSecret:'synthetic-app-secret',tenantKey:'tenant',ownerOpenId:'owner',ownerChatId:'chat'};
 const input={url:'https://receiver.example/cb',secret:'whsec_'+Buffer.alloc(32,13).toString('base64')};
 function event(now){return{schema:'2.0',header:{event_id:'e',event_type:'im.message.receive_v1',create_time:String(now),app_id:credentials.appId,tenant_key:'tenant'},event:{sender:{sender_id:{open_id:'owner'},sender_type:'user',tenant_key:'tenant'},message:{message_id:'m',chat_id:'chat',chat_type:'p2p',message_type:'text',create_time:String(now),content:JSON.stringify({text:'BODY_NEVER_PERSISTED'})}}};}
@@ -27,7 +26,7 @@ function fixture(t){
   session=createLarkOwnerMessageSession({credentials,expectedAppId:credentials.appId,acceptAnyOwnerText:true,fixedReply:'fixed reply',waitForOwner:true,authenticatedCallbackDiscovery:true,callbackTransport:transport,recognizeTransport:shared.ownerMessageExperimentStatus,proxyEnv,clock:()=>now,ledger,restoredCheckpoint:checkpoint,providerSend:async(url,options)=>{options.beforeConnect();assert.equal(ledger.load().phase,'reply_attempted');if(url.endsWith('/tenant_access_token/internal'))return{status:200,body:Buffer.from(JSON.stringify({code:0,tenant_access_token:'synthetic-token',expire:7200}))};providerReplies++;return{status:200,body:Buffer.from(JSON.stringify({code:0,data:{message_id:'reply',chat_id:'chat'}}))};}});return session;
  }
  function close(){session?.close();session=undefined;store?.close();store=undefined;}
- t.after(close);
+ beforeFixtureCleanup(t,close);
  return{open,close,principal,callbacks,settings,get ledger(){return ledger;},get now(){return now;},set now(value){now=value;},get providerReplies(){return providerReplies;}};
 }
 test('durable grant restores gateway without a new subscribe or challenge and delivered reply recovers without body',async t=>{

@@ -10,10 +10,12 @@
 
 只需本仓库。公共组件使用固定版本的 `@dot-bridge/core` 发行包，已随源码保存在 `vendor/` 并由锁文件校验；不需要 QQ 仓库、core 源码 clone 或同级目录。独立安装、单飞书聚合器与升级方法见 [公共组件](docs/core.md)。以下命令在 `dot-lark-bridge/` 中执行。
 
-需要 Node.js **24.15+、低于 25**。安装锁定依赖后，测试和模拟器只使用合成数据及本机 loopback，不访问飞书、OpenAI 或身份服务。
+需要 Node.js **24.15+、低于 25**，TLS 测试需 PATH 上已有受信任的 OpenSSL。
+Windows 还需已有 Python 3.10+ 和本地 NTFS；Linux 专用辅助程序及文件保护测试
+会在 Windows 上明确跳过。安装锁定依赖后，测试和模拟器只使用合成数据及本机 loopback，不访问飞书、OpenAI 或身份服务。
 
 ```powershell
-npm.cmd ci --ignore-scripts --no-audit --no-fund
+npm.cmd ci --omit=dev --ignore-scripts --no-audit --no-fund
 npm.cmd run check
 npm.cmd test
 npm.cmd run simulate
