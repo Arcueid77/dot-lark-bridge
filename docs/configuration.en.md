@@ -93,7 +93,7 @@ The database adds encrypted detail, reaction, card and sequence tables while pre
 
 Use Node 24.15–24.x and OpenSSL. Media conversion needs protected Linux `/usr/bin/ffmpeg`, `python3` and `prlimit`; PDF extraction needs the distribution's `python3-pypdf`. Subprocesses use no shell, only stdin/stdout, bounded to 20 seconds, 512 MiB and 15 CPU seconds. ZIPs are not extracted to disk, external document resources are not fetched, and FFmpeg protocols are limited to pipe.
 
-Run locked installation, check, test and simulate without QQ/core source checkouts. `test/standalone-router.test.js` must actually run; its synthetic groups/resources/context/card scenarios do not prove live comprehension. Dated results are in the [validation archive](archive/validation.md).
+Run locked installation, check, test and simulate without QQ/core source checkouts. `test/standalone-router.test.js` must actually run; its synthetic groups/resources/context/card scenarios do not prove live comprehension. Recorded validation scope is summarized in [Development](development.en.md).
 
 Real acceptance covers reactions, one updating card, long-answer files, quotations, follow-ups, images, files, audio, approved group triggers/member rejection, restart deduplication and SSH disconnection. Use one consumer; no QQ backend is needed. A whole-server reboot is a separate planned action.
 

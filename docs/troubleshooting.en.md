@@ -65,4 +65,4 @@ SIGTERM stops intake/claims, waits for work and closes the database. Events may 
 
 Runtime logs use fixed states, counts, booleans and timestamps, not credentials, identities, message bodies or full callback/WSS URLs. Configure actual journal/log retention and size limits on the host. This repository does not set the host policy or promise seven-day logs for every installation.
 
-Text/replies default to seven-day logical cleanup; deduplication tombstones remain and disk use needs monitoring. Old database pages, WAL, backups and system logs have separate retention. Logical deletion is not physical erasure. Messages during long outages or inactive subscriptions may be unrecoverable. See the [archive](archive/README.en.md) for dated evidence and acceptance gaps.
+Text/replies default to seven-day logical cleanup; deduplication tombstones remain and disk use needs monitoring. Old database pages, WAL, backups and system logs have separate retention. Logical deletion is not physical erasure. Messages during long outages or inactive subscriptions may be unrecoverable. See [Development](development.en.md) for recorded validation scope and acceptance gaps.

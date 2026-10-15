@@ -2,7 +2,7 @@
 
 [简体中文](deployment.md) | [English](deployment.en.md) | [Home](../README.en.md)
 
-This is the current single-channel official Secure MCP Tunnel workflow: original dot → official tunnelclient → loopback router → Feishu backend. Clone only this repository. Undeployed channels need no source, credentials or readiness service. Previous OAuth/Webhook, Sites and finite diagnostic workflows remain in the archive.
+This is the current single-channel official Secure MCP Tunnel workflow: original dot → official tunnelclient → loopback router → Feishu backend. Clone only this repository. Undeployed channels need no source, credentials or readiness service. The steps below cover this persistent Tunnel topology.
 
 ## 1. Inspect the host and pin the source
 
@@ -54,7 +54,16 @@ node scripts/setup.js pair --credentials /var/lib/dot-bridge/private/lark/regist
 
 The dedicated registration transport in the first command currently requires an approved working HTTPS proxy. Without one it refuses; direct connectivity in the persistent runtime does not make this helper direct-capable. Enrollment can run in an approved proxy environment, followed by an approved secure file transfer. Reuse valid files instead of rescanning. Never copy an old cloud computer's proxy address blindly.
 
-Pairing accepts only a short-lived challenge sent by the already verified owner in the original private chat. If the SDK did not return their open_id, verify it and supply `--owner-open-id`. Never infer the owner from the first sender or invent tenant/chat values. Enrollment can remain unbound when the tenant is unknown, but cannot run live until official identity verification, import and pairing complete; see the [original enrollment reference](archive/register-app.md).
+Pairing accepts only a short-lived challenge sent by the already verified owner in the original private chat. If the SDK did not return their open_id, verify it and supply `--owner-open-id`. Never infer the owner from the first sender or invent tenant/chat values. Enrollment can remain unbound when the tenant is unknown, but cannot run live until official identity verification, import and pairing complete. Use the verified import below before pairing.
+
+
+Do not rescan when an approved unbound file already exists. After reviewing an official source and obtaining the owner's exact app/tenant/open_id confirmation, prepare private evidence JSON containing `version:1`, `source:operator-reviewed-official-source`, `verifiedAt` within 24 hours, `appId`, `tenantKey`, `ownerOpenId` and matching `confirmedAppId`, `confirmedTenantKey`, `confirmedOwnerOpenId`. `sourceUrl` must be a clean HTTPS URL at `open.feishu.cn` or `accounts.feishu.cn`, without credentials, a port, query or fragment. This is an operator attestation, not automatic authentication; a scanning-owner mismatch is rejected.
+
+```sh
+node scripts/import-verified-identity.js PRIVATE_UNBOUND PRIVATE_EVIDENCE NEW_PRIVATE_REGISTERED --confirm-verified-owner-binding
+```
+
+The command writes one new registered file without overwriting the original, connecting or sending. Complete the original private-chat binding with the pair command above.
 
 For a new app, `node scripts/setup.js register --credentials NEW_PRIVATE_FILE --tenant-key VERIFIED_TENANT_KEY --confirm-create-app` is a separately approved creation flow. Scanning, grant review, console activation and owner pairing require human participation.
 

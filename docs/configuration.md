@@ -94,7 +94,7 @@ node scripts/configure-interactions.js validate /var/lib/dot-bridge/private/lark
 
 Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg`、`python3`、`prlimit`，PDF 提取需官方发行版 `python3-pypdf`。子进程无 shell、只通过 stdin/stdout、20 秒/512 MiB/15 CPU 秒限制；不提取 ZIP 到磁盘、不获取文档外部资源，FFmpeg 协议仅允许 pipe。
 
-独立验证只需本仓库：在没有 QQ/core 源码 checkout 的目录执行锁定安装、`npm run check`、`npm test` 和 `npm run simulate`。确认 `test/standalone-router.test.js` 实际执行且不因兄弟路径缺失而跳过；其合成场景包含群触发、图片资源、上下文及同一卡片回复，不证明真实网关或模型理解能力。本页列出的是验收步骤，具体执行结果见 [validation.md](archive/validation.md)。通过离线验证并获准后才部署固定提交候选；仅运行一个飞书消费者，无需 QQ 后端。真实验收由本人发消息，分别检查表情、同一卡片、长文文件、引用、多轮、图片、文件、语音、获批群 @/关键词/全消息/成员拒绝、重启去重和断开 SSH；整台 VPS 重启需另获批。
+独立验证只需本仓库：在没有 QQ/core 源码 checkout 的目录执行锁定安装、`npm run check`、`npm test` 和 `npm run simulate`。确认 `test/standalone-router.test.js` 实际执行且不因兄弟路径缺失而跳过；其合成场景包含群触发、图片资源、上下文及同一卡片回复，不证明真实网关或模型理解能力。本页列出的是验收步骤，具体执行结果见 [开发说明](development.md)。通过离线验证并获准后才部署固定提交候选；仅运行一个飞书消费者，无需 QQ 后端。真实验收由本人发消息，分别检查表情、同一卡片、长文文件、引用、多轮、图片、文件、语音、获批群 @/关键词/全消息/成员拒绝、重启去重和断开 SSH；整台 VPS 重启需另获批。
 
 默认正文与回答七天逻辑清除；去重墓碑保留。WAL、数据库旧页、备份、系统日志仍可能保留加密历史，逻辑清除不是物理擦除。订阅到期由原 dot/平台按真实 refreshBefore 更新；桥没有另建自动续订任务。
 

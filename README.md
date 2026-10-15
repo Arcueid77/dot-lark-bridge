@@ -23,7 +23,7 @@
 | 查不回复、过期、重复、备份及升级 | [运行与排错](docs/troubleshooting.md) |
 | 修改代码、接入更多 IM、提交 PR | [开发说明](docs/development.md) |
 
-旧方案和有日期的验证证据放在[历史归档](docs/archive/README.md)，首次部署无需逐篇阅读。
+已完成交接和重复说明已从当前目录删除；需要追溯时查看 Git 历史。
 
 ## 离线检查
 
@@ -38,7 +38,7 @@ npm run simulate
 
 Linux 与原生 Windows 有相应私有文件保护实现；其他系统尚不支持私人 Tunnel 运行。Linux 媒体处理另需受保护的 FFmpeg、Python、prlimit 和 PDF 依赖。systemd 步骤见部署指南；Windows 后台服务、Docker 镜像及容器运行须分别验证。
 
-测试使用合成身份与本机服务。2026-10-15 的 Windows 独立回归为 260 通过、0 失败、15 个 Linux 专用项跳过，详见[验证归档](docs/archive/validation.md)。离线通过不能证明目标实例的飞书网关、原 dot 订阅或媒体/群体验已接通。
+测试使用合成身份与本机服务。2026-10-15 的 Windows 独立回归为 260 通过、0 失败、15 个 Linux 专用项跳过，详见[验证范围](docs/development.md)。离线通过不能证明目标实例的飞书网关、原 dot 订阅或媒体/群体验已接通。
 
 ## 授权和许可
 

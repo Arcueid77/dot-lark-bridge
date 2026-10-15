@@ -2,7 +2,7 @@
 
 [简体中文](deployment.md) | [English](deployment.en.md) | [首页](../README.md)
 
-本文是单渠道官方 Secure MCP Tunnel 的现行流程。拓扑为原 dot → 官方 tunnelclient → loopback 聚合器 → 飞书 后端。只克隆本仓库；未部署渠道不需要源码、凭据或 readiness 服务。OAuth/Webhook、Sites 和有限时诊断的旧流程保存在归档，不用于下面的部署。
+本文是单渠道官方 Secure MCP Tunnel 的现行流程。拓扑为原 dot → 官方 tunnelclient → loopback 聚合器 → 飞书 后端。只克隆本仓库；未部署渠道不需要源码、凭据或 readiness 服务。以下步骤只用于此常驻 Tunnel 拓扑。
 
 ## 1. 检查环境并固定源码
 
@@ -54,7 +54,16 @@ node scripts/setup.js pair --credentials /var/lib/dot-bridge/private/lark/regist
 
 第一条的专用注册传输目前要求已批准且可用的 HTTPS 代理；没有代理时会拒绝，正式运行的直连能力不等于此脚本支持直连。可以在获批代理环境完成 enrollment，再经批准安全迁移文件。已有有效文件则复用，不重复扫码；不得套用旧云电脑代理地址。
 
-配对只接受已核验主人发送的短期口令，按提示在原私聊发送完整文字。若 SDK 未返回主人 open_id，先核实身份，再附加 `--owner-open-id`。不能从第一位发言者推断主人或伪造 tenant/chat。tenant 未核实时可 enrollment 为 unbound，但该文件不能启动 live；经官方来源确认后才用身份导入及配对完成绑定，详见[原始注册流程](archive/register-app.md)。
+配对只接受已核验主人发送的短期口令，按提示在原私聊发送完整文字。若 SDK 未返回主人 open_id，先核实身份，再附加 `--owner-open-id`。不能从第一位发言者推断主人或伪造 tenant/chat。tenant 未核实时可 enrollment 为 unbound，但该文件不能启动 live；经官方来源确认后才用下面的身份导入及配对完成绑定。
+
+
+已有 unbound 文件无需重新扫码。操作者审查官方来源并取得主人对 app/tenant/open_id 的准确确认后，准备受保护的证据 JSON：必须包含 `version:1`、`source:operator-reviewed-official-source`、24 小时内的 `verifiedAt`、`appId`、`tenantKey`、`ownerOpenId` 及分别相等的 `confirmedAppId`、`confirmedTenantKey`、`confirmedOwnerOpenId`。`sourceUrl` 必须是 `open.feishu.cn` 或 `accounts.feishu.cn` 的干净 HTTPS 地址，无凭据、端口、查询或 fragment。这是操作者核验记录，不是自动认证；与扫码主人冲突时拒绝。
+
+```sh
+node scripts/import-verified-identity.js PRIVATE_UNBOUND PRIVATE_EVIDENCE NEW_PRIVATE_REGISTERED --confirm-verified-owner-binding
+```
+
+命令只写入一个新的 registered 文件，不覆盖原文件、不连接或发送；随后使用前面的 pair 命令完成原私聊绑定。
 
 没有应用时，`node scripts/setup.js register --credentials NEW_PRIVATE_FILE --tenant-key VERIFIED_TENANT_KEY --confirm-create-app` 是另行批准的新建流程。真正的飞书扫码、权限确认、控制台启用及本人配对都需要人参与。
 

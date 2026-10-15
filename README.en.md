@@ -23,7 +23,7 @@ Clone only this repository. A pinned `@dot-bridge/core` distribution is included
 | Diagnose missing replies, expiry, backups and upgrades | [Operations and troubleshooting](docs/troubleshooting.en.md) |
 | Change code, add IM adapters or contribute a PR | [Development](docs/development.en.md) |
 
-Previous designs and dated evidence are in the [historical archive](docs/archive/README.en.md). They are not required reading for a new installation.
+Completed handoffs and duplicate guides have been removed from the current tree; use Git history when tracing earlier work.
 
 ## Offline checks
 
@@ -38,7 +38,7 @@ npm run simulate
 
 Linux and native Windows have platform-specific private-file protection. Other operating systems are not supported for private Tunnel operation. Linux media processing also needs protected FFmpeg, Python, prlimit and PDF dependencies. The deployment guide covers systemd; Windows background services, Docker builds and container operation need separate validation.
 
-Tests use synthetic identities and local services. The 2026-10-15 standalone Windows regression recorded 260 passes, zero failures and 15 Linux-specific skips; see the [validation archive](docs/archive/validation.md). Offline success does not prove a target instance's Gateway, original-dot subscription, media or group experience.
+Tests use synthetic identities and local services. The 2026-10-15 standalone Windows regression recorded 260 passes, zero failures and 15 Linux-specific skips; see the [validation scope](docs/development.en.md). Offline success does not prove a target instance's Gateway, original-dot subscription, media or group experience.
 
 ## Authorization and license
 

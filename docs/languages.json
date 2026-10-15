@@ -1,6 +1,5 @@
 {
   "default_language": "zh-CN",
-  "archive_policy": "Original language, dated scope; current guides are bilingual.",
   "pages": [
     {
       "zh-CN": "README.md",
@@ -29,10 +28,6 @@
     {
       "zh-CN": "plugin/README.md",
       "en": "plugin/README.en.md"
-    },
-    {
-      "zh-CN": "docs/archive/README.md",
-      "en": "docs/archive/README.en.md"
     }
   ]
 }

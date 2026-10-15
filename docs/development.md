@@ -2,7 +2,7 @@
 
 [简体中文](development.md) | [English](development.en.md) | [首页](../README.md)
 
-日常安装和操作只需[部署](deployment.md)、[功能配置](configuration.md)和[运行排错](troubleshooting.md)。本页面向修改代码的维护者；旧设计和逐次验证记录保存在[归档](archive/README.md)，不再作为并行维护的现行指南。
+日常安装和操作只需[部署](deployment.md)、[功能配置](configuration.md)和[运行排错](troubleshooting.md)。本页面向修改代码的维护者；下文保留必要的设计约束与验证范围。已完成交接通过 Git 历史追溯。
 
 ## 仓库职责
 
@@ -28,7 +28,21 @@ core 不导入各 IM 的 SDK；新增渠道应持有自身适配器并使用公�
 - 不记录凭据、身份、正文或完整地址；SQLite 只加密载荷与部分秘密，元数据和去重 ID 仍依赖私有磁盘保护。
 - 同机模式锁不提供跨主机互斥。普通常驻服务不使用有限窗口/依赖 stdin 的开发监督器。
 
-协议依据和早期兼容路径见[协议归档](archive/protocol.md)、[架构归档](archive/architecture.md)。OAuth 兼容路径验证既有发行方 RS256/JWKS；Sites 是另行授权和验证的模式，不作为 Tunnel 失败后的自动降级。
+协议依据见[来源声明](../THIRD_PARTY_NOTICES.md)，共享实现以 core 为准。OAuth 兼容路径验证既有发行方 RS256/JWKS；Sites 是另行授权和验证的模式，不作为 Tunnel 失败后的自动降级。
+
+## 已记录的验证范围
+
+2026-10-15 的独立 Windows 修复工作树验证使用 Node 24.15.0、本地 NTFS、OpenSSL 3.5.6 和 core 0.2.1；不含 QQ/core 源码 checkout。
+
+| 范围 | 结果与限制 |
+| --- | --- |
+| 锁定安装、check、simulate | 通过；模拟包含官方 SDK dispatcher、本地 MCP、签名事件和一次合成原会话回复 |
+| 完整测试 | 275 项：260 通过、0 失败、15 跳过 |
+| 跳过原因 | 10 项 Linux 私有文件检查、5 项 Linux POSIX 交接报告器；并非 Windows 凭据保护失效 |
+| 独立 router | 实际执行通过，无缺少 QQ 兄弟仓库导致的跳过 |
+| 证据边界 | 该次记录不包括更新后的 Linux 回归、Docker 构建/运行、服务切换或新的真实消息验收 |
+
+本次文档精简未重跑这些完整套件。飞书网关、原 dot 订阅以及卡片/媒体/群规则的实际启用和用户可见效果仍需目标实例的独立证据；上述离线结果不能替代。详细历史记录可从 Git 找回。
 
 ## 验证和提交
 
@@ -43,7 +57,7 @@ npm run simulate
 
 `test/standalone-router.test.js` 必须实际执行，不能因缺少兄弟仓库而跳过。 对共享实现的修改应在 core 仓库运行相应测试。记录精确 SHA、OS、Node、通过/失败/跳过/未运行；Windows 结果不能替代 Linux，合成结果不能替代真实消息验收。
 
-文档以中文主文件和同目录 `.en.md` 成对维护。首页只链接四份现行指南；同一流程只维护一处。`docs/languages.json` 列出当前双语文件，`npm run check` 检查覆盖、切换链接及本地链接。历史归档保留原语言和原时间范围，不重新包装成当前保证。
+文档以中文主文件和同目录 `.en.md` 成对维护。首页只链接四份现行指南；同一流程只维护一处。`docs/languages.json` 列出当前双语文件，`npm run check` 检查覆盖、切换链接及本地链接。完成的交接和被替代的说明直接删除，需要时从 Git 历史恢复。
 
 PR 先确认变更范围、通过适用检查并更新描述。希望保留普通提交且避免额外 merge commit 时，选择 **Rebase and merge**：
 
