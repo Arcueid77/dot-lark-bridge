@@ -3,6 +3,6 @@
   "name": "dot-lark-bridge",
   "version": "0.1.0",
   "description": "Owner-only Feishu private text events and replies for the subscribing existing dot.",
-  "repository": "https://github.com/AvaloNero/dot-lark-bridge",
+  "repository": "https://github.com/Arcueid77/dot-lark-bridge",
   "license": "MIT"
 }

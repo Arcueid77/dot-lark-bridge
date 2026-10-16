@@ -4,7 +4,7 @@
 
 The repository's original MIT LICENSE, Copyright (c) 2026 A2KT, is unchanged.
 
-The general MCP 2.0, Standard Webhooks signing, OAuth/JWKS, SSRF, SQLite queue and regression designs originated in the same author's [dot-qq-bridge](https://github.com/AvaloNero/dot-qq-bridge), fixed MIT commit `3578dd0bbc3c3fca12c610fb23c14d13ef77a193`. This project removes QQ callback/signing/sending protocols and adds Feishu binding and subscription generation/revocation race protection.
+The general MCP 2.0, Standard Webhooks signing, OAuth/JWKS, SSRF, SQLite queue and regression designs originated in the same author's [dot-qq-bridge](https://github.com/Arcueid77/dot-qq-bridge), fixed MIT commit `3578dd0bbc3c3fca12c610fb23c14d13ef77a193`. This project removes QQ callback/signing/sending protocols and adds Feishu binding and subscription generation/revocation race protection.
 
 The official [`@larksuiteoapi/node-sdk`](https://github.com/larksuite/node-sdk) 1.74.0 is consumed as an npm dependency, not copied as built source into this repository. It is MIT, Copyright (c) 2022 Lark Technologies Pte. Ltd.; the npm package carries its full LICENSE. `package-lock.json` records versions, transitive dependencies, integrity and license metadata. Distributions containing node_modules must retain each dependency's license.
 
