@@ -65,6 +65,7 @@ export function createInteractionsApi(config, send, sender, clock = Date.now) {
       else if(bytes.subarray(0,3).toString()==='ID3'||(bytes[0]===255&&(bytes[1]&224)===224))mime='audio/mpeg';
       else if(bytes.subarray(0,5).toString()==='%PDF-')mime='application/pdf';
       if(item.type==='image'&&!mime.startsWith('image/'))throw new BridgeError('Unsupported image representation');
+      if(item.type==='audio'&&!mime.startsWith('audio/')){bytes.fill(0);throw new BridgeError('Unsupported audio representation; ask the sender to resend or send text');}
       return {item,bytes,mime};
     },
     async upload(type,bytes,name,authorize){

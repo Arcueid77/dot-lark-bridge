@@ -23,14 +23,14 @@ test('standalone actual Feishu rich/group contract works without a QQ repository
   const {readConfig}=await import(new URL('config.js',larkRoot)),{createApp:createLark}=await import(new URL('server.js',larkRoot));
   const {createLarkDispatcher}=await import(new URL('lark-runtime.js',larkRoot));
   const config=readConfig({AUTH_MODE:'tunnel-service',BRIDGE_MODE:'tunnel',TUNNEL_SERVICE_OPERATION:'live',TUNNEL_SERVICE_OWNER_ID:OWNER,TUNNEL_SERVICE_KEY_FILE:keyFiles[2],LARK_EXPECTED_APP_ID:'cli_0123456789abcdef',LARK_CREDENTIALS_FILE:creds,LARK_TRANSPORT:'long-connection',STORAGE_KEY_FILE:keyFiles[3],DATABASE_PATH:path.join(stateDir,'bridge.sqlite'),BRIDGE_LOCK_DIRECTORY:stateDir,MCP_CALLBACK_ALLOWED_HOSTS:'callback.example.test',LARK_INTERACTION_POLICY_FILE:policy});
-  const events=[],replies=[],updates=[];let bot='wrong-bot',botChecks=0,gatewayStarts=0;
+  const events=[],replies=[],updates=[];let bot='wrong-bot',botChecks=0,gatewayStarts=0,resource=PNG;
   const ok=data=>({status:200,body:Buffer.from(JSON.stringify({code:0,data}))});
   const send=async(url,options)=>{
     options.beforeConnect?.();
     if(url.startsWith('https://callback.example.test/')){const body=JSON.parse(options.body);if(body.type==='verification')return {status:200,body:Buffer.from(JSON.stringify({challenge:body.challenge}))};events.push(body);return {status:202,body:Buffer.from('{}')};}
     if(url.endsWith('/tenant_access_token/internal'))return {status:200,body:Buffer.from(JSON.stringify({code:0,tenant_access_token:'synthetic-token',expire:7200}))};
     if(url.endsWith('/bot/v3/info')){botChecks++;return {status:200,body:Buffer.from(JSON.stringify({code:0,bot:{open_id:bot}}))};}
-    if(url.includes('/resources/'))return {status:200,body:Buffer.from(PNG)};
+    if(url.includes('/resources/'))return {status:200,body:Buffer.from(resource)};
     if(url.endsWith('/cardkit/v1/cards'))return ok({card_id:'card'});
     if(url.includes('/cardkit/v1/cards/')){updates.push(JSON.parse(options.body));return ok({});}
     if(url.endsWith('/reply')){replies.push(JSON.parse(options.body));return ok({message_id:'outbound',chat_id:'group'});}
@@ -55,4 +55,8 @@ test('standalone actual Feishu rich/group contract works without a QQ repository
   await call('begin_lark_reply',{message_id:'message'});await call('append_lark_reply',{message_id:'message',sequence:1,text:'真实生成段落。'});await lark.bridge.tick();
   await call('reply_to_lark',{message_id:'message',text:'真实生成段落。'});await lark.bridge.tick();assert.equal(replies.length,1);assert.equal(updates.at(-1).sequence>0,true);assert.equal((await call('get_lark_message',{message_id:'message'})).body.result.structuredContent.reply.status,'sent');
   assert.equal(botChecks,2);assert.equal(gatewayStarts,0);assert.equal((await call('check_bridge_setup')).status,403);assert.equal((await post('tools/list')).body.result.tools.length,9);assert.equal((await post('events/list')).body.result.events.length,1);
+  resource=Buffer.from('T2dnUwACAAAAAAAAAAAz8kTgAAAAALrPHYkBE09wdXNIZWFkAQE4AcBdAAAAAABPZ2dTAAAAAAAAAAAAADPyROABAAAA1bfHFAE+T3B1c1RhZ3MNAAAATGF2ZjYyLjEyLjEwMQEAAAAdAAAAZW5jb2Rlcj1MYXZjNjIuMjguMTAxIGxpYm9wdXNPZ2dTAAT4BAAAAAAAADPyROACAAAA4ZtgkQIOEGgL5ME27MWNjElIQmzQaAfJcifhROpV8fDA0XMXaA==','base64');
+  const voice=structuredClone(payload);voice.header.event_id='voice-event';voice.event.message.message_id='voice';voice.event.message.message_type='audio';voice.event.message.content=JSON.stringify({file_key:'voice-key',duration:20});
+  assert.equal((await dispatcher.invoke(voice,{needCheck:false})).outcome,'queued');await lark.bridge.tick();
+  const audio=await call('get_lark_attachment',{message_id:'voice',attachment_index:0});assert.equal(audio.status,200);assert.equal(audio.body.result.content[1].type,'audio');assert.equal(audio.body.result.content[1].mimeType,'audio/ogg');assert.deepEqual(Buffer.from(audio.body.result.content[1].data,'base64'),resource);
 });

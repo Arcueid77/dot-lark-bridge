@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {privateMkdtempSync} from '@dot-bridge/core/platform/test-fixtures.js';
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=','base64');
+// Locally generated 20 ms of silence, encoded as an actual Ogg/Opus file.
+const OPUS=Buffer.from('T2dnUwACAAAAAAAAAAAz8kTgAAAAALrPHYkBE09wdXNIZWFkAQE4AcBdAAAAAABPZ2dTAAAAAAAAAAAAADPyROABAAAA1bfHFAE+T3B1c1RhZ3MNAAAATGF2ZjYyLjEyLjEwMQEAAAAdAAAAZW5jb2Rlcj1MYXZjNjIuMjguMTAxIGxpYm9wdXNPZ2dTAAT4BAAAAAAAADPyROACAAAA4ZtgkQIOEGgL5ME27MWNjElIQmzQaAfJcifhROpV8fDA0XMXaA==','base64');
 function policy(groups=[],overrides={}){return validateInteractionPolicy({version:1,enabled:true,reactions:true,render:'card',media:true,streaming:true,auto_card:false,bot_open_id:'fixture-bot',groups,...overrides});}
 function payload(f,id,{chat='fixture_private_chat',sender='fixture_lark_owner',text='测试',type='text',mentions=[],parent,...rest}={}){
   const data=larkPayload(f.now(),{message_id:id,chat_id:chat,chat_type:chat==='fixture_private_chat'?'p2p':'group',message_type:type,mentions,content:JSON.stringify(type==='text'?{text}:text),...(parent?{parent_id:parent}:{}),...rest});data.header.event_id='event-'+id;data.event.sender.sender_id.open_id=sender;return data;
@@ -195,6 +197,29 @@ test('image attachment reading returns bound MCP content and source attachment r
   await f.tool('reply_lark_attachment',{message_id:'image',attachment_index:0});await f.app.bridge.tick();
   assert.equal(f.calls.uploads.length,1);assert.equal(f.calls.replies.length,1);assert.equal(f.calls.replies[0].body.msg_type,'image');assert.equal(f.app.bridge.store.replyStatus('image').status,'sent');
   await f.tool('reply_lark_attachment',{message_id:'image',attachment_index:0});await f.app.bridge.tick();assert.equal(f.calls.replies.length,1);
+});
+test('voice is gated by media policy, returned as native audio, and a source voice reply is durable and deduplicated',async t=>{
+  const f=await setup(t,[],{send:async url=>url.includes('/resources/')?{status:200,body:Buffer.from(OPUS)}:undefined});
+  await f.subscribe();await f.receive('voice',{type:'audio',text:{file_key:'voice-key',duration:20}});await f.app.bridge.tick();
+  const read=await f.tool('get_lark_message',{message_id:'voice'});assert.equal(read.body.result.structuredContent.attachments[0].type,'audio');
+  const media=await f.tool('get_lark_attachment',{message_id:'voice',attachment_index:0});assert.equal(media.status,200);
+  assert.equal(media.body.result.content[1].type,'audio');assert.equal(media.body.result.content[1].mimeType,'audio/ogg');
+  assert.deepEqual(Buffer.from(media.body.result.content[1].data,'base64'),OPUS);
+  const {projectLarkResult}=await import('../src/tunnel-contract.js');const projected=projectLarkResult({name:'get_lark_attachment',arguments:{message_id:'voice',attachment_index:0}},media.body.result);
+  assert.equal(projected.content[1].type,'audio');assert.ok(!JSON.stringify(projected).includes('voice-key'));
+  await f.tool('reply_lark_attachment',{message_id:'voice',attachment_index:0});await f.app.bridge.tick();
+  await f.tool('reply_lark_attachment',{message_id:'voice',attachment_index:0});await f.app.bridge.tick();
+  assert.equal(f.calls.uploads.length,1);assert.equal(f.calls.replies.length,1);assert.equal(f.calls.replies[0].body.msg_type,'audio');
+  const disabled=await setup(t,[],{policy:{media:false}});await disabled.subscribe();await disabled.receive('disabled-voice',{type:'audio',text:{file_key:'voice-key'}});
+  assert.equal(disabled.app.bridge.store.get('SELECT count(*) AS n FROM messages').n,0);assert.equal(disabled.calls.resources.length,0);
+});
+test('unrecognized voice resources fail explicitly and revoked voice reads return no content',async t=>{
+  const f=await setup(t,[],{send:async url=>url.includes('/resources/')?{status:200,body:Buffer.from('not playable voice')}:undefined});
+  await f.subscribe();await f.receive('bad-voice',{type:'audio',text:{file_key:'voice-key'}});await f.app.bridge.tick();
+  const result=await f.tool('get_lark_attachment',{message_id:'bad-voice',attachment_index:0});assert.equal(result.status,400);assert.match(result.body.error.message,/audio representation/);
+  const revoked=await setup(t,[],{send:async(url,_request,app)=>{if(url.includes('/resources/')){app.app.bridge.store.unsubscribe(app.app.bridge.store.activeSubscription(app.now()).id);return{status:200,body:Buffer.from(OPUS)};}}});
+  await revoked.subscribe();await revoked.receive('revoked-voice',{type:'audio',text:{file_key:'voice-key'}});await revoked.app.bridge.tick();
+  assert.equal((await revoked.tool('get_lark_attachment',{message_id:'revoked-voice',attachment_index:0})).body.error.code,-32012);
 });
 test('automatic cards show receipt before genuine model progress; expiry closes the existing card without a new reply',async t=>{
   const f=await setup(t,[],{policy:{auto_card:true,reactions:false}});await f.subscribe();await f.receive('auto');await f.app.bridge.tick();await f.app.bridge.tick();
