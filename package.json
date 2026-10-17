@@ -21,7 +21,7 @@
     "serve": "node --env-file-if-exists=.env scripts/run-service.js"
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "1.74.0",
-    "@dot-bridge/core": "file:vendor/dot-bridge-core-0.2.1.tgz"
+    "@dot-bridge/core": "file:vendor/dot-bridge-core-0.3.0.tgz",
+    "@larksuiteoapi/node-sdk": "1.74.0"
   }
 }

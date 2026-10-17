@@ -100,6 +100,14 @@ Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg
 
 ## 运行限制
 
+### 语音转写
+
+部分 ChatGPT 工具环境会省略 MCP 音频内容。启用本地转写后，`get_lark_attachment` 同时返回 `extracted_text`，原 dot 可据此理解语音、回复原会话。转写只是参考，不能当作外部操作授权。
+
+在后端环境文件设置 `DOT_BRIDGE_AUDIO_TRANSCRIPTION=local-whisper`、`DOT_BRIDGE_WHISPER_BINARY` 和 `DOT_BRIDGE_WHISPER_MODEL`。后两项是已安装、root 所有且服务用户不可修改的 whisper-cli 与多语言模型绝对路径；另需 `/usr/bin/ffmpeg`、`prlimit`、`flock`。与 QQ 共用原 `BRIDGE_LOCK_DIRECTORY`，一次只转写一条。音频通过内存管道处理，无需 API key，不发往外部转写服务，回答仍由原 dot 生成。
+
+单条限制为 8 MiB、两分钟音频、28 秒转写，最多返回 12000 字符。繁忙、超时或听不清会标明 `extraction_status:unsupported`；没有可用音频或文字时，请发送者重发较短语音或文字。只有读取结果中存在转写才说明本次成功，媒体开关或附件下载成功本身并不代表 dot 能听懂。
+
 以下字段放在后端环境文件中，不放在聚合器环境中：
 
 | 字段 | 默认值 | 含义 |

@@ -207,6 +207,9 @@ test('voice is gated by media policy, returned as native audio, and a source voi
   assert.deepEqual(Buffer.from(media.body.result.content[1].data,'base64'),OPUS);
   const {projectLarkResult}=await import('../src/tunnel-contract.js');const projected=projectLarkResult({name:'get_lark_attachment',arguments:{message_id:'voice',attachment_index:0}},media.body.result);
   assert.equal(projected.content[1].type,'audio');assert.ok(!JSON.stringify(projected).includes('voice-key'));
+  const transcribed=structuredClone(media.body.result);transcribed.structuredContent.extracted_text='合成语音转写';transcribed.structuredContent.extraction_status='complete';
+  const readable=projectLarkResult({name:'get_lark_attachment',arguments:{message_id:'voice',attachment_index:0}},transcribed);
+  assert.equal(readable.value.extracted_text,'合成语音转写');assert.match(readable.content[0].text,/合成语音转写/);
   await f.tool('reply_lark_attachment',{message_id:'voice',attachment_index:0});await f.app.bridge.tick();
   await f.tool('reply_lark_attachment',{message_id:'voice',attachment_index:0});await f.app.bridge.tick();
   assert.equal(f.calls.uploads.length,1);assert.equal(f.calls.replies.length,1);assert.equal(f.calls.replies[0].body.msg_type,'audio');

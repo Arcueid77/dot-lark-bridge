@@ -101,6 +101,14 @@ Text/replies default to seven-day logical cleanup; deduplication tombstones rema
 
 ## Runtime limits
 
+### Voice transcription
+
+Some ChatGPT hosts omit native MCP audio. With local transcription enabled, `get_lark_attachment` also returns `extracted_text` for the original dot to read and answer in the source conversation. It is an imperfect reference, never authorization for external actions.
+
+Set `DOT_BRIDGE_AUDIO_TRANSCRIPTION=local-whisper`, `DOT_BRIDGE_WHISPER_BINARY` and `DOT_BRIDGE_WHISPER_MODEL` in the backend environment. Use absolute paths to a reviewed root-owned whisper-cli and multilingual model, neither writable by the service user. Install `/usr/bin/ffmpeg`, `prlimit`, `flock`. Share the existing private `BRIDGE_LOCK_DIRECTORY` with QQ to serialize recognition. Audio uses memory pipes on the VPS; no API key or external transcription service is involved.
+
+Limits: 8 MiB, 120 seconds of audio, 28 seconds of recognition and 12000 output characters. Busy, timed-out or unclear audio returns `extraction_status:unsupported`; ask for a shorter recording or text if neither representation is usable. A media switch or successful download alone does not establish that the dot understood the voice.
+
 Set these in the backend environment file, not the router environment:
 
 | Setting | Default | Meaning |

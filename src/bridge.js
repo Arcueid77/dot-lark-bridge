@@ -1,4 +1,5 @@
 import { ownerScopedProxy, assertCallbackMode } from './callback-mode.js';
+import { transcribeAudio } from '@dot-bridge/core/audio';
 import { larkSetupTool, callbackPreflight } from './setup-preflight.js';
 import { tunnelReadiness, tunnelLive } from './tunnel-service-auth.js';
 import { randomBytes } from 'node:crypto';
@@ -175,10 +176,11 @@ export class Bridge {
           if(params.name==='append_lark_reply')return toolResult(this.interactions.append(message,args.sequence,args.text));
           if(!this.config.interaction?.media)throw new BridgeError('Media messages are not enabled');
           if(params.name==='get_lark_attachment'){
+            const deadline=Date.now()+40000;
             const authorize=()=>this.authorizeStoredMessage(message.id,principal.id,this.clock());
             const media=await this.interactions.api.attachment(message,args.attachment_index,authorize);
             try{
-              authorize();const extracted=media.item.type==='file'?await readableFile(media.bytes,media.mime):{};authorize();
+              authorize();const extracted=media.item.type==='file'?await readableFile(media.bytes,media.mime):media.item.type==='audio'?await transcribeAudio(media.bytes,{authorize,deadline}):{};authorize();
               const representedType=media.mime.startsWith('image/')?'image':media.mime.startsWith('audio/')?'audio':media.item.type;
               const value={message_id:message.id,attachment_index:args.attachment_index,type:representedType,name:media.item.name,mime_type:media.mime,size:media.bytes.length,...extracted};
               const data=media.bytes.toString('base64');
