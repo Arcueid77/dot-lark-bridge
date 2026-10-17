@@ -109,6 +109,8 @@ Set `DOT_BRIDGE_AUDIO_TRANSCRIPTION=local-whisper`, `DOT_BRIDGE_WHISPER_BINARY` 
 
 Limits: 8 MiB, 120 seconds of audio, 28 seconds of recognition and 12000 output characters. Busy, timed-out or unclear audio returns `extraction_status:unsupported`; ask for a shorter recording or text if neither representation is usable. A media switch or successful download alone does not establish that the dot understood the voice.
 
+Compile core's included `audio/no-core-dump.c` as a shared library in the protected runtime directory and set its absolute path in `DOT_BRIDGE_AUDIO_GUARD`. Audio subprocesses are made nondumpable so piped crash collectors cannot retain voice memory. Local recognition refuses to run without this protection.
+
 Set these in the backend environment file, not the router environment:
 
 | Setting | Default | Meaning |
