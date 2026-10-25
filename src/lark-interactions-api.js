@@ -55,21 +55,22 @@ export function createInteractionsApi(config, send, sender, clock = Date.now) {
     async attachment(message,index,authorize){
       const item=message.attachments[index];if(!item)throw new BridgeError('Attachment unavailable');
       const response=await request(`im/v1/messages/${segment(message.id)}/resources/${segment(item.key)}?type=${item.type==='image'?'image':'file'}`,undefined,{authorize,method:'GET',mutation:false,resource:true});
-      const bytes=response.body;if(!bytes.length||bytes.length>MAX_ATTACHMENT_BYTES)throw new BridgeError('Attachment size refused');
+      const bytes=response.body;if(!Buffer.isBuffer(bytes)||!bytes.length||bytes.length>MAX_ATTACHMENT_BYTES||(response.headers?.['content-encoding']&&response.headers['content-encoding']!=='identity')){if(Buffer.isBuffer(bytes))bytes.fill(0);throw new BridgeError('Attachment size refused');}
       let mime='application/octet-stream';
       if(bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))mime='image/png';
       else if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255)mime='image/jpeg';
       else if(bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP')mime='image/webp';
+      else if(['GIF87a','GIF89a'].includes(bytes.subarray(0,6).toString()))mime='image/gif';
       else if(bytes.subarray(0,4).toString()==='OggS')mime='audio/ogg';
       else if(bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WAVE')mime='audio/wav';
       else if(bytes.subarray(0,3).toString()==='ID3'||(bytes[0]===255&&(bytes[1]&224)===224))mime='audio/mpeg';
       else if(bytes.subarray(0,5).toString()==='%PDF-')mime='application/pdf';
-      if(item.type==='image'&&!mime.startsWith('image/'))throw new BridgeError('Unsupported image representation');
+      if(item.type==='image'&&!mime.startsWith('image/')){bytes.fill(0);throw new BridgeError('Unsupported image representation');}
       if(item.type==='audio'&&!mime.startsWith('audio/')){bytes.fill(0);throw new BridgeError('Unsupported audio representation; ask the sender to resend or send text');}
       return {item,bytes,mime};
     },
     async upload(type,bytes,name,authorize){
-      if(!bytes.length||bytes.length>MAX_ATTACHMENT_BYTES||!['image','file','audio'].includes(type))throw new BridgeError('Media upload refused');
+      if(!Buffer.isBuffer(bytes)||!bytes.length||bytes.length>MAX_ATTACHMENT_BYTES||!['image','file','audio'].includes(type)||typeof name!=='string')throw new BridgeError('Media upload refused');
       name=name.replace(/[\r\n"\\/]/g,'_').slice(0,128);if(!name)throw new BridgeError('Invalid media filename');
       const converted=type==='audio'?await opusAudio(bytes):null;
       let body;
@@ -81,7 +82,7 @@ export function createInteractionsApi(config, send, sender, clock = Date.now) {
       chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${type==='image'?'image':'file'}"; filename="${name}"\r\nContent-Type: application/octet-stream\r\n\r\n`),bytes,Buffer.from(`\r\n--${boundary}--\r\n`));
       authorize();const token=await sender.token(authorize);authorize();
       body=Buffer.concat(chunks);
-      let response;try{response=await send(`${FEISHU_ORIGIN}/open-apis/im/v1/${type==='image'?'images':'files'}`,{purpose:'provider',hosts:['open.feishu.cn'],headers:{Authorization:`Bearer ${token}`,'Content-Type':`multipart/form-data; boundary=${boundary}`},body,beforeConnect:authorize});}catch(error){if(error instanceof BridgeError&&error.code===-32012)throw error;throw new BridgeError('Media upload acknowledgement unknown',{uncertain:true});}
+      let response;try{response=await (send.uploadRequester??send)(`${FEISHU_ORIGIN}/open-apis/im/v1/${type==='image'?'images':'files'}`,{purpose:'provider',hosts:['open.feishu.cn'],headers:{Authorization:`Bearer ${token}`,'Content-Type':`multipart/form-data; boundary=${boundary}`},body,beforeConnect:authorize});}catch(error){if(error instanceof BridgeError&&error.code===-32012)throw error;throw new BridgeError('Media upload acknowledgement unknown',{uncertain:true});}
       if(response.status===401){sender.invalidate();throw new BridgeError('Feishu authentication rejected',{retryable:true});}
       if(response.status===429)throw new BridgeError('Feishu rate limited',{retryable:true});
       if(response.status>=500)throw new BridgeError('Media upload acknowledgement unknown',{uncertain:true});

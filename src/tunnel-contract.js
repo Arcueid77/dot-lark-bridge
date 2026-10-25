@@ -1,4 +1,6 @@
 // Shared Lark schemas: one source for backend and closed aggregate projection.
+import {validateMedia} from '@dot-bridge/core/channels/media.js';
+import {hash} from './common.js';
 export const LARK_INPUT_LIMIT = 20000, LARK_REPLY_LIMIT = 30000, LARK_MEDIA_BYTES = 8 * 1024 * 1024;
 export const LARK_BASE64_LIMIT = Math.ceil(LARK_MEDIA_BYTES / 3) * 4;
 export const larkIdSchema = { type: 'string', minLength: 1, maxLength: 256 };
@@ -39,7 +41,24 @@ function check(schema,value){
   if(schema.enum&&!schema.enum.includes(value))throw new Error('Invalid Lark enum');
   if(schema.format==='date-time'&&(!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString()!==value))throw new Error('Invalid Lark timestamp');
 }
-export function validateLarkArguments(name,args){const tool=larkToolDefinitions.find(tool=>tool.name===name);if(!tool)throw new Error('Unknown Lark tool');check(tool.inputSchema,args);if(['reply_to_lark','append_lark_reply'].includes(name)&&!args.text.trim())throw new Error('Empty Lark text');if(name==='reply_lark_media'){if(!/^[A-Za-z0-9+/]+={0,2}$/.test(args.data))throw new Error('Invalid media data');const bytes=Buffer.from(args.data,'base64');try{if(bytes.length>LARK_MEDIA_BYTES||bytes.toString('base64')!==args.data)throw new Error('Invalid media data');}finally{bytes.fill(0);}if(!/^[^\r\n"\\/]{1,128}$/.test(args.name)||!/^[a-z][a-z0-9.+-]*\/[a-z0-9.+-]+$/i.test(args.mime_type))throw new Error('Invalid media metadata');}return {...args};}
+export function validateLarkArguments(name,args){
+  const tool=larkToolDefinitions.find(tool=>tool.name===name);if(!tool)throw new Error('Unknown Lark tool');check(tool.inputSchema,args);
+  if(['reply_to_lark','append_lark_reply'].includes(name)&&!args.text.trim())throw new Error('Empty Lark text');
+  if(name==='reply_lark_media'){
+    if(!/^[A-Za-z0-9+/]+={0,2}$/.test(args.data))throw new Error('Invalid media data');
+    const bytes=Buffer.from(args.data,'base64');
+    try{
+      if(bytes.toString('base64')!==args.data)throw new Error('Invalid media data');
+      validateMedia({type:args.type,data:bytes,mimeType:args.mime_type,name:args.name});
+      if(args.name.includes('"'))throw new Error('Invalid media filename');
+      if(args.type==='audio'){
+        const kind=bytes.subarray(0,4).toString()==='OggS'?'audio/ogg':bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WAVE'?'audio/wav':bytes.subarray(0,3).toString()==='ID3'||(bytes[0]===255&&(bytes[1]&224)===224)?'audio/mpeg':null;
+        if(kind!==args.mime_type)throw new Error('Audio replies require Ogg, WAV or MP3 bytes');
+      }
+    }finally{bytes.fill(0);}
+  }
+  return {...args};
+}
 export function projectLarkResult(call,result){
   const tool=larkToolDefinitions.find(tool=>tool.name===call.name);if(!tool||result.isError!==false)throw new Error('Invalid Lark result');
   check(tool.outputSchema,result.structuredContent);const value=structuredClone(result.structuredContent);
@@ -54,13 +73,13 @@ export function projectLarkResult(call,result){
   const block=blocks[0];let output;
   if(['image','audio'].includes(block.type)){
     if(Object.keys(block).some(key=>!['type','data','mimeType'].includes(key))||block.type!==value.type||block.mimeType!==value.mime_type||typeof block.data!=='string')throw new Error('Invalid attachment block');
-    if(block.type==='image'&&!['image/png','image/jpeg','image/webp'].includes(block.mimeType))throw new Error('Invalid image type');
+    if(block.type==='image'&&!['image/png','image/jpeg','image/webp','image/gif'].includes(block.mimeType))throw new Error('Invalid image type');
     if(block.type==='audio'&&!['audio/ogg','audio/mpeg','audio/wav'].includes(block.mimeType))throw new Error('Invalid audio type');
     if(block.data.length>LARK_BASE64_LIMIT||!/^[A-Za-z0-9+/]+={0,2}$/.test(block.data))throw new Error('Attachment too large');
-    const bytes=Buffer.from(block.data,'base64');try{if(bytes.length!==value.size||bytes.toString('base64')!==block.data)throw new Error('Invalid attachment encoding');}finally{bytes.fill(0);}output={type:block.type,data:block.data,mimeType:block.mimeType};
+    const bytes=Buffer.from(block.data,'base64');try{if(bytes.length!==value.size||bytes.toString('base64')!==block.data)throw new Error('Invalid attachment encoding');validateMedia({type:block.type,data:bytes,mimeType:block.mimeType,name:'attachment'});}finally{bytes.fill(0);}output={type:block.type,data:block.data,mimeType:block.mimeType};
   }else{
     if(block.type!=='resource'||Object.keys(block).some(key=>!['type','resource'].includes(key))||!block.resource||Object.keys(block.resource).some(key=>!['uri','mimeType','blob'].includes(key)))throw new Error('Invalid file resource');
-    const r=block.resource;if(!/^lark-attachment:[a-f0-9]{32}$/.test(r.uri)||r.mimeType!==value.mime_type||typeof r.blob!=='string'||r.blob.length>LARK_BASE64_LIMIT||!/^[A-Za-z0-9+/]+={0,2}$/.test(r.blob))throw new Error('Invalid file resource');
+    const r=block.resource;if(r.uri!==`lark-attachment:${hash(`${value.message_id}:${value.attachment_index}`).slice(0,32)}`||value.type!=='file'||r.mimeType!==value.mime_type||typeof r.blob!=='string'||r.blob.length>LARK_BASE64_LIMIT||!/^[A-Za-z0-9+/]+={0,2}$/.test(r.blob))throw new Error('Invalid file resource');
     const bytes=Buffer.from(r.blob,'base64');try{if(bytes.length!==value.size||bytes.toString('base64')!==r.blob)throw new Error('Invalid file encoding');}finally{bytes.fill(0);}output={type:'resource',resource:{uri:r.uri,mimeType:r.mimeType,blob:r.blob}};
   }
   return richLarkResult(value,[{type:'text',text:JSON.stringify(value)},output]);

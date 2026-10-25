@@ -12,6 +12,8 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { makeProviderRequester, createProviderProxyAgent, configuredProviderProxy, proxyBypassed } from '../src/provider-network.js';
 import { makePublicRequester } from '../src/network.js';
 import { createFeishuAgent } from '../src/lark-runtime.js';
+import {createMediaUploadRequester} from '../src/formal-sender.js';
+import {createInteractionsApi} from '../src/lark-interactions-api.js';
 const HOST = 'open.feishu.cn';
 let dir, ca, target, proxy, wss, proxyEnv, connects = [], received = [];
 const sockets = new Set();
@@ -22,7 +24,8 @@ before(async () => {
   ca = readFileSync(join(dir,'cert.pem'));
   target = https.createServer({ key:readFileSync(join(dir,'key.pem')), cert:ca }, (req,res) => {
     received.push({path:req.url,host:req.headers.host,proxyAuth:req.headers['proxy-authorization']});
-    if(req.url==='/redirect'){res.writeHead(302,{location:'https://attacker.invalid/'});res.end();}
+    if(req.url==='/open-apis/im/v1/files'){let size=0;req.on('data',chunk=>{size+=chunk.length;});req.on('end',()=>{received.at(-1).uploadBytes=size;res.end(JSON.stringify({code:0,data:{file_key:'synthetic-upload'}}));});}
+    else if(req.url==='/redirect'){res.writeHead(302,{location:'https://attacker.invalid/'});res.end();}
     else if(req.url==='/large'){res.end('x'.repeat(1000));}
     else res.end('fixture-ok');
   });
@@ -44,6 +47,18 @@ const options={method:'GET',hosts:[HOST]};
 
 test('native provider HTTPS uses loopback CONNECT with original hostname TLS verification',async()=>{const n=connects.length;const out=await requester()(`https://${HOST}/`,options);assert.equal(out.status,200);assert.equal(out.body.toString(),'fixture-ok');assert.equal(connects[n],`${HOST}:443`);assert.equal(received.at(-1).host,HOST);assert.equal(received.at(-1).proxyAuth,undefined);});
 test('provider redirects and response limits fail closed',async()=>{await assert.rejects(requester()(`https://${HOST}/redirect`,options),e=>e.data.reason==='redirect_rejected');await assert.rejects(requester({maxBytes:100})(`https://${HOST}/large`,options));});
+
+test('full 8 MiB media uploads use the bounded official multipart path through the existing TLS proxy',async()=>{
+  const upload=createMediaUploadRequester({proxyEnv,providerSend:requester({maxBytes:8*1024*1024+65536,timeoutMs:10000})});
+  const send=()=>assert.fail('large upload used the ordinary small-body sender');send.uploadRequester=upload;
+  const api=createInteractionsApi({},send,{token:async()=> 'synthetic-only-token'});
+  assert.equal(await api.upload('file',Buffer.alloc(8*1024*1024,65),'large.bin',()=>{}),'synthetic-upload');
+  assert.ok(received.at(-1).uploadBytes>8*1024*1024);assert.ok(received.at(-1).uploadBytes<8*1024*1024+65536);assert.equal(received.at(-1).host,HOST);
+  const before=connects.length,request={purpose:'provider',hosts:[HOST],body:Buffer.from('synthetic')};
+  for(const target of [`https://${HOST}/open-apis/im/v1/messages`,`https://${HOST}/open-apis/im/v1/files?target=other`,`https://${HOST}/open-apis/im/v1/files#x`,'https://attacker.invalid/open-apis/im/v1/files'])assert.throws(()=>upload(target,request));
+  for(const changed of [{...request,method:'GET'},{...request,purpose:'callback'},{...request,hosts:['attacker.invalid']},{...request,body:Buffer.alloc(8*1024*1024+65537)}])assert.throws(()=>upload(`https://${HOST}/open-apis/im/v1/files`,changed));
+  await assert.rejects(upload(`https://${HOST}/open-apis/im/v1/files`,{...request,beforeConnect(){throw new Error('revoked');}}),/revoked/);assert.equal(connects.length,before);
+});
 test('provider opt-in cannot route arbitrary or malformed destinations',async()=>{const n=connects.length;for(const url of ['https://attacker.invalid/','http://'+HOST+'/',`https://${HOST}:444/`,`https://u:p@${HOST}/`,`https://${HOST}/#x`])await assert.rejects(requester()(url,{...options,hosts:[new URL(url).hostname]}));assert.equal(connects.length,n);});
 test('missing, unsupported, malformed proxies and NO_PROXY do not downgrade to direct',async()=>{assert.equal(configuredProviderProxy({}),null);assert.throws(()=>configuredProviderProxy({HTTPS_PROXY:'socks5://127.0.0.1:1'}));assert.throws(()=>configuredProviderProxy({HTTPS_PROXY:'invalid'}));assert.equal(configuredProviderProxy({https_proxy:'http://lower.example:1',HTTPS_PROXY:'http://upper.example:2'}),'http://lower.example:1/');for(const rule of ['*',HOST,`.${HOST.split('.').slice(1).join('.')}`,`${HOST}:443`]){assert.equal(proxyBypassed(HOST,{NO_PROXY:rule}),true);const n=connects.length;await assert.rejects(requester({env:{...proxyEnv,NO_PROXY:rule}})(`https://${HOST}/`,options));assert.equal(connects.length,n);}await assert.rejects(requester({env:{}})(`https://${HOST}/`,options));});
 test('revocation prevents provider connection creation',async()=>{const n=connects.length;await assert.rejects(requester()(`https://${HOST}/`,{...options,beforeConnect(){throw new Error('revoked');}}),/revoked/);assert.equal(connects.length,n);});

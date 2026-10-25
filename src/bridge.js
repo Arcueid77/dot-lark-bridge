@@ -181,10 +181,9 @@ export class Bridge {
             const media=await this.interactions.api.attachment(message,args.attachment_index,authorize);
             try{
               authorize();const extracted=media.item.type==='file'?await readableFile(media.bytes,media.mime):media.item.type==='audio'?await transcribeAudio(media.bytes,{authorize,deadline}):{};authorize();
-              const representedType=media.mime.startsWith('image/')?'image':media.mime.startsWith('audio/')?'audio':media.item.type;
-              const value={message_id:message.id,attachment_index:args.attachment_index,type:representedType,name:media.item.name,mime_type:media.mime,size:media.bytes.length,...extracted};
+              const value={message_id:message.id,attachment_index:args.attachment_index,type:media.item.type,name:media.item.name,mime_type:media.mime,size:media.bytes.length,...extracted};
               const data=media.bytes.toString('base64');
-              const content=media.mime.startsWith('image/')?{type:'image',mimeType:media.mime,data}:media.mime.startsWith('audio/')?{type:'audio',mimeType:media.mime,data}:{type:'resource',resource:{uri:`lark-attachment:${hash(`${message.id}:${args.attachment_index}`).slice(0,32)}`,mimeType:media.mime,blob:data}};
+              const content=media.item.type==='image'?{type:'image',mimeType:media.mime,data}:media.item.type==='audio'?{type:'audio',mimeType:media.mime,data}:{type:'resource',resource:{uri:`lark-attachment:${hash(`${message.id}:${args.attachment_index}`).slice(0,32)}`,mimeType:media.mime,blob:data}};
               return {isError:false,structuredContent:value,content:[{type:'text',text:JSON.stringify(value)},content]};
             }finally{media.bytes.fill(0);}
           }

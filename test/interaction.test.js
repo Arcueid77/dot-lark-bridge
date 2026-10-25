@@ -198,6 +198,26 @@ test('image attachment reading returns bound MCP content and source attachment r
   assert.equal(f.calls.uploads.length,1);assert.equal(f.calls.replies.length,1);assert.equal(f.calls.replies[0].body.msg_type,'image');assert.equal(f.app.bridge.store.replyStatus('image').status,'sent');
   await f.tool('reply_lark_attachment',{message_id:'image',attachment_index:0});await f.app.bridge.tick();assert.equal(f.calls.replies.length,1);
 });
+
+test('media validation rejects mislabeled bytes before queueing and files retain resource form even when they contain an image',async t=>{
+  const f=await setup(t);await f.subscribe();await f.receive('file-image',{type:'file',text:{file_key:'file-image-key',file_name:'image.png'}});await f.app.bridge.tick();
+  const result=(await f.tool('get_lark_attachment',{message_id:'file-image',attachment_index:0})).body.result;
+  assert.equal(result.structuredContent.type,'file');assert.equal(result.content[1].type,'resource');
+  const {projectLarkResult}=await import('../src/tunnel-contract.js');
+  assert.equal(projectLarkResult({name:'get_lark_attachment',arguments:{message_id:'file-image',attachment_index:0}},result).content[1].type,'resource');
+  const bad=structuredClone(result);bad.content[1].resource.uri='lark-attachment:'+'0'.repeat(32);assert.throws(()=>projectLarkResult({name:'get_lark_attachment',arguments:{message_id:'file-image',attachment_index:0}},bad));
+  for(const changed of [{type:'image',mime_type:'image/jpeg',data:PNG.toString('base64')},{type:'image',mime_type:'image/png',data:Buffer.from('not an image').toString('base64')},{type:'audio',mime_type:'audio/wav',data:PNG.toString('base64')},{type:'file',mime_type:'application/pdf',data:'YQ==',name:'a\tb.pdf'}]){
+    assert.equal((await f.tool('reply_lark_media',{message_id:'file-image',name:'example.bin',...changed})).status,400);
+  }
+  assert.equal(f.app.bridge.store.get('SELECT count(*) AS n FROM replies').n,0);assert.equal(f.calls.uploads.length,0);
+});
+
+test('revocation during a successful media upload prevents the final Feishu reply',async t=>{
+  const f=await setup(t,[],{send:async(url,request,app,calls)=>{if(url.endsWith('/im/v1/images')){calls.uploads.push(Buffer.from(request.body));app.app.bridge.store.unsubscribe(app.app.bridge.store.activeSubscription(app.now()).id);return{status:200,body:Buffer.from(JSON.stringify({code:0,data:{image_key:'synthetic-image'}}))};}}});
+  await f.subscribe();await f.receive('revoke-upload');await f.app.bridge.tick();
+  await f.tool('reply_lark_media',{message_id:'revoke-upload',type:'image',name:'a.png',mime_type:'image/png',data:PNG.toString('base64')});await f.app.bridge.tick();
+  assert.equal(f.calls.uploads.length,1);assert.equal(f.calls.replies.length,0);assert.equal(f.app.bridge.store.replyStatus('revoke-upload').status,'cancelled');
+});
 test('voice is gated by media policy, returned as native audio, and a source voice reply is durable and deduplicated',async t=>{
   const f=await setup(t,[],{send:async url=>url.includes('/resources/')?{status:200,body:Buffer.from(OPUS)}:undefined});
   await f.subscribe();await f.receive('voice',{type:'audio',text:{file_key:'voice-key',duration:20}});await f.app.bridge.tick();

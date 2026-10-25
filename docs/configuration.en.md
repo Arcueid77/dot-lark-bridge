@@ -2,9 +2,9 @@
 
 [简体中文](configuration.md) | [English](configuration.en.md) | [Home](../README.en.md)
 
-The original dot, official Secure MCP Tunnel and Feishu app stay in place. Shared transport, platform protection and routing come from the pinned `@dot-bridge/core` release. No QQ source or readiness backend is needed; see [Deployment](deployment.en.md).
+This page covers images, audio, files, cards and group settings for your existing dot, official Secure MCP Tunnel and Feishu app. For installation, see [Deployment](deployment.en.md).
 
-These are optional capabilities, not proof that a deployment has enabled or accepted them. Without `LARK_INTERACTION_POLICY_FILE`, the bridge keeps owner-only private plain-text compatibility: reactions, media, cards and groups are off.
+These features require a protected interaction configuration and the corresponding Feishu permissions. Without `LARK_INTERACTION_POLICY_FILE`, the bridge handles only the owner's private text messages. Enable media, reactions, cards and groups using the settings below.
 
 ## Supported experience
 
@@ -15,7 +15,7 @@ These are optional capabilities, not proof that a deployment has enabled or acce
 - Files expose the original MCP resource and attempt UTF-8, PDF, DOCX, XLSX or PPTX extraction. Unsupported extraction is labeled honestly. Audio is passed as MCP audio for the original dot to interpret; outbound non-Opus audio uses restricted FFmpeg conversion. No additional model API or transcription bot is introduced.
 - Failures, expiry, revocation and uncertain sends update a known card and remove the bridge's own processing reaction where permitted. Missing callbacks never masquerade as dot receipt. Uncertain outcomes remain `uncertain` without automatic resend; revocation prevents further reads/sends.
 
-Image, document and audio understanding, and incremental generation still need real acceptance on the original dot. Synthetic tests cannot prove host support for every MCP content type.
+The original dot must be able to read the corresponding tool content. If it receives voice messages but cannot interpret them, enable local transcription as described below.
 
 ## Feishu app permissions
 
@@ -93,9 +93,11 @@ The database adds encrypted detail, reaction, card and sequence tables while pre
 
 Use Node 24.15–24.x and OpenSSL. Media conversion needs protected Linux `/usr/bin/ffmpeg`, `python3` and `prlimit`; PDF extraction needs the distribution's `python3-pypdf`. Subprocesses use no shell, only stdin/stdout, bounded to 20 seconds, 512 MiB and 15 CPU seconds. ZIPs are not extracted to disk, external document resources are not fetched, and FFmpeg protocols are limited to pipe.
 
-Run locked installation, check, test and simulate without QQ/core source checkouts. `test/standalone-router.test.js` must actually run; its synthetic groups/resources/context/card scenarios do not prove live comprehension. Recorded validation scope is summarized in [Development](development.en.md).
+Non-Opus conversion and PDF/Office extraction also require the protected `DOT_BRIDGE_AUDIO_GUARD` component described below; core dumps are disabled. These conversions remain off without the guard. Existing Opus audio, images and ordinary file transfer still work. Do not weaken system-file or private-directory permissions to enable conversion.
 
-Real acceptance covers reactions, one updating card, long-answer files, quotations, follow-ups, images, files, audio, approved group triggers/member rejection, restart deduplication and SSH disconnection. Use one consumer; no QQ backend is needed. A whole-server reboot is a separate planned action.
+Image replies accept PNG, JPEG, GIF and WebP. Audio replies accept existing Ogg, WAV and MP3, converting to Opus as required by Feishu; no text-to-speech service is included. The bridge's 8 MiB cap still applies. See the official [image upload](https://open.feishu.cn/document/server-docs/im-v1/image/create) and [file upload](https://open.feishu.cn/document/server-docs/im-v1/file/create) references.
+
+After updating, send text, an image, a short voice message and a small file from your private chat, and confirm each reply returns to that conversation. If cards or groups are enabled, also check their updates, trigger rules and member limits. Restarting the service should not resend completed replies, and disconnecting SSH should leave the service running. Plan a whole-server reboot separately.
 
 Text/replies default to seven-day logical cleanup; deduplication tombstones remain. Old pages, WAL, backups and system logs may retain encrypted history. Subscription renewal follows the original dot/platform's real `refreshBefore`; the bridge creates no renewal automation.
 

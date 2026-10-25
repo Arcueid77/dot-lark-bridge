@@ -42,7 +42,17 @@ The standalone Windows fix worktree was verified on October 15, 2026 with Node 2
 | Standalone router | Actually ran and passed, without a missing-sibling QQ skip |
 | Evidence boundary | That record did not include updated Linux regression, Docker build/runtime, service cutover or new real-message acceptance |
 
-This documentation cleanup did not rerun those full suites. Gateway, original-dot subscription, cards/media/groups and visible client behavior still need independent evidence on the target instance; the offline results cannot substitute for it. Detailed earlier records remain retrievable through Git.
+The table above records the October 15 run. On October 26, 2026, the 0.3.0 candidate was checked on Windows with Node 24.19.0, OpenSSL 3.5.8 and pinned core 0.5.1:
+
+| Scope | Result |
+| --- | --- |
+| check | Passed for 105 JavaScript files, bilingual documentation, local links and pinned core metadata |
+| Full suite | 283 tests: 267 passes, zero failures, 16 skips |
+| Skip reasons | Ten Linux private-file cases, five POSIX handoff reporter cases and one real subprocess check requiring the Linux nondumpable guard |
+| Media and simulation | Passed fixed-endpoint 8 MiB multipart uploads through a TLS proxy, revocation after upload, attachment type/source binding and one offline original-conversation reply |
+| Package inspection | Included the media entrypoints, pinned core 0.5.1 and its release metadata |
+
+This record does not include VPS updates or real-account acceptance. Gateway, original-dot subscription and optional features still need evidence on the target instance. The real Linux subprocess check requires an installed protected `DOT_BRIDGE_AUDIO_GUARD`. Detailed earlier records remain retrievable through Git.
 
 ## Validation and contributions
 

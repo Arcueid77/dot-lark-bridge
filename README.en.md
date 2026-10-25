@@ -23,22 +23,9 @@ Clone only this repository. A pinned `@dot-bridge/core` distribution is included
 | Diagnose missing replies, expiry, backups and upgrades | [Operations and troubleshooting](docs/troubleshooting.en.md) |
 | Change code, add IM adapters or contribute a PR | [Development](docs/development.en.md) |
 
-Completed handoffs and duplicate guides have been removed from the current tree; use Git history when tracing earlier work.
+## Runtime
 
-## Offline checks
-
-Use Node.js **>=24.15 and <25** and trusted OpenSSL for TLS tests. Windows also requires Python 3.10+ and local NTFS; use `npm.cmd` if PowerShell restricts `npm.ps1`.
-
-```sh
-npm ci --omit=dev --ignore-scripts --no-audit --no-fund
-npm run check
-npm test
-npm run simulate
-```
-
-Linux and native Windows have platform-specific private-file protection. Other operating systems are not supported for private Tunnel operation. Linux media processing also needs protected FFmpeg, Python, prlimit and PDF dependencies. The deployment guide covers systemd; Windows background services, Docker builds and container operation need separate validation.
-
-Tests use synthetic identities and local services. The 2026-10-15 standalone Windows regression recorded 260 passes, zero failures and 15 Linux-specific skips; see the [validation scope](docs/development.en.md). Offline success does not prove a target instance's Gateway, original-dot subscription, media or group experience.
+Use Node.js **>=24.15 and <25** on a continuously running Linux VPS or native Windows with local NTFS. Windows also needs Python 3.10+. The deployment guide covers installation, owner pairing and systemd; development commands are in the development guide.
 
 ## Authorization and license
 

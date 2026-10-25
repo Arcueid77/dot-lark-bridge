@@ -3,9 +3,9 @@
 [简体中文](configuration.md) | [English](configuration.en.md) | [首页](../README.md)
 
 
-本功能继续使用同一个 dot、同一个官方 Secure MCP Tunnel 和原飞书应用。当前分支使用独立 `@dot-bridge/core` 发行包提供公共传输、平台保护和聚合路由，不依赖 QQ 仓库或 QQ readiness 后端。飞书工具/事件 schema 位于本仓库 `src/tunnel-contract.js`，聚合适配器位于 `src/tunnel-adapter.js`；`scripts/run-tunnel-router.js` 显式注册飞书适配器。安装与单飞书拓扑见 [部署指南](deployment.md)。
+本页介绍飞书中的图片、语音、文件、卡片和群聊设置，继续连接原来的 dot、官方 Secure MCP Tunnel 和飞书应用。安装步骤见[部署指南](deployment.md)。
 
-下列增强体验是代码提供的可选能力，需启用受保护交互策略及对应权限。未设置 `LARK_INTERACTION_POLICY_FILE` 时保留本人私聊纯文字兼容模式，不自动启用媒体、表情、卡片或群聊。代码存在不代表目标实例已经启用或完成真实验收。
+这些功能需要受保护的交互配置及对应的飞书权限。未设置 `LARK_INTERACTION_POLICY_FILE` 时，默认只处理本人私聊文字；图片、语音、文件、表情、卡片和群聊需要按下文开启。
 
 ## 支持的体验
 
@@ -16,7 +16,7 @@
 - 文件提供原始 MCP resource，同时尝试提取 UTF-8 文本、PDF、DOCX、XLSX、PPTX。失败明确标注 `unsupported`，不是声称已经读懂。语音通过原 dot 支持的 MCP audio 内容传入；出站非 Opus 音频经受限 FFmpeg 转为 Opus，不另建模型 API 或转写机器人。
 - 失败、超时、撤销或发送结果不明会更新已知卡片并移除自己的处理表情。没有 callback 时不伪造 dot 已收到。结果不明保留 `uncertain`，禁止自动重发。权限撤销后不再发送或读取该会话。
 
-实际图片理解、文件理解、语音理解和逐段生成仍须原 dot 的工具调用与真实消息验收；离线合成测试不能证明宿主会处理所有 MCP 内容类型。
+原 dot 需要能读取对应的工具内容。语音已收到但无法理解时，可以按下文启用本机转写。
 
 ## 飞书应用权限
 
@@ -94,7 +94,11 @@ node scripts/configure-interactions.js validate /var/lib/dot-bridge/private/lark
 
 Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg`、`python3`、`prlimit`，PDF 提取需官方发行版 `python3-pypdf`。子进程无 shell、只通过 stdin/stdout、20 秒/512 MiB/15 CPU 秒限制；不提取 ZIP 到磁盘、不获取文档外部资源，FFmpeg 协议仅允许 pipe。
 
-独立验证只需本仓库：在没有 QQ/core 源码 checkout 的目录执行锁定安装、`npm run check`、`npm test` 和 `npm run simulate`。确认 `test/standalone-router.test.js` 实际执行且不因兄弟路径缺失而跳过；其合成场景包含群触发、图片资源、上下文及同一卡片回复，不证明真实网关或模型理解能力。本页列出的是验收步骤，具体执行结果见 [开发说明](development.md)。通过离线验证并获准后才部署固定提交候选；仅运行一个飞书消费者，无需 QQ 后端。真实验收由本人发消息，分别检查表情、同一卡片、长文文件、引用、多轮、图片、文件、语音、获批群 @/关键词/全消息/成员拒绝、重启去重和断开 SSH；整台 VPS 重启需另获批。
+非 Opus 语音转换和 PDF/Office 提取也需要下文的 `DOT_BRIDGE_AUDIO_GUARD`：复用受保护的防转储组件，并禁止 core dump。未安装时这些转换保持关闭，已有 Opus 音频、图片和普通文件传递不受影响。不要为启用转换放宽系统文件或私有目录权限。
+
+图片回复接受 PNG、JPEG、GIF、WebP；语音回复接受已有 Ogg、WAV、MP3 音频，按飞书要求转成 Opus。桥不提供文字转语音。文件和媒体上限仍为 8 MiB，官方格式见[图片上传](https://open.feishu.cn/document/server-docs/im-v1/image/create)和[文件上传](https://open.feishu.cn/document/server-docs/im-v1/file/create)。
+
+更新后，从本人私聊发送文字、图片、短语音和小文件，确认回复回到原会话。开启卡片或群聊功能时，再检查对应的卡片更新、触发规则和成员限制。普通服务重启后，已回复的消息不应再次发送；断开 SSH 后服务应继续运行。整台 VPS 重启需另行安排。
 
 默认正文与回答七天逻辑清除；去重墓碑保留。WAL、数据库旧页、备份、系统日志仍可能保留加密历史，逻辑清除不是物理擦除。订阅到期由原 dot/平台按真实 refreshBefore 更新；桥没有另建自动续订任务。
 
