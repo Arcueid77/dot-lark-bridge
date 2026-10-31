@@ -33,6 +33,36 @@ test('live rejects missing pairing, mixed inline secrets and alternate mode inpu
  const {env}=fixture(t);
  for(const delta of [{LARK_EXPECTED_APP_ID:'cli_aaaaaaaaaaaaaaaa'},{LARK_CREDENTIALS_FILE:''},{STORAGE_KEY_FILE:''},{BRIDGE_LOCK_DIRECTORY:''},{DATABASE_PATH:''},{TUNNEL_SERVICE_OPERATION:'auto'},{LARK_APP_SECRET:fixtureSecret},{SITES_ORIGIN:'https://foreign.example'},{HOST:'0.0.0.0'},{TUNNEL_SERVICE_OWNER_ID:'tunnel-owner:other'}]) assert.throws(()=>readConfig({...env,...delta}));
 });
+
+test('authenticated live setup exposes actual state without changing subscriptions or outbound work',async t=>{
+ const {env}=fixture(t);Object.assign(env,{MCP_CALLBACK_ALLOWED_HOSTS:'callback.example',CALLBACK_HOSTS:'ignored.example',SUBSCRIPTION_TTL_SECONDS:'60'});
+ const c=readConfig(env);let now=Date.now(),requests=0;
+ const send=async(_url,options)=>{requests++;options.beforeConnect?.();const body=JSON.parse(options.body);return {status:200,body:Buffer.from(JSON.stringify({challenge:body.challenge}))};};
+ send.callbackTransportStatus=()=>({ready:true,mode:'direct',reason:'none',proxy_configured:false,destination_binding:'direct_pinned',network_checked:false});
+ const app=createApp(c,{approvedLive:true,worker:false,clock:()=>now,send});beforeFixtureCleanup(t,()=>app.close());
+ const address=await app.listen(0),key=fs.readFileSync(c.tunnelServiceKeyFile,'utf8');
+ const post=async(method,params={})=>{const response=await fetch(`http://127.0.0.1:${address.port}/mcp`,{method:'POST',headers:{'content-type':'application/json',accept:'application/json, text/event-stream','mcp-protocol-version':'2026-07-28','mcp-method':method,...(method==='tools/call'?{'mcp-name':params.name}:{}),'x-dot-bridge-service-key':key},body:JSON.stringify({jsonrpc:'2.0',id:'status-fixture',method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28','io.modelcontextprotocol/clientCapabilities':{}}}})});return {status:response.status,body:await response.json()};};
+ const inspect=()=>post('tools/call',{name:'check_lark_setup',arguments:{}});
+ const empty=(await inspect()).body.result.structuredContent;
+ assert.equal(empty.subscription_status.state,'none');assert.equal(empty.subscription_status.expires_at,null);assert.equal(empty.connection_status.diagnostic_history,'unavailable');
+ assert.equal(empty.connection_status.callback_setting_name,'MCP_CALLBACK_ALLOWED_HOSTS');assert.equal(empty.connection_status.wrong_callback_setting_present,true);assert.equal(empty.connection_status.callback_hosts_count,1);assert.equal(requests,0);
+ const params={name:'lark.message.created',arguments:{conversation:'owner'},delivery:{mode:'webhook',url:'https://callback.example/private-status-callback',secret:'whsec_'+Buffer.alloc(32,14).toString('base64')}};
+ const bad=await post('events/subscribe',{...params,delivery:{...params.delivery,url:'https://unapproved.example/private-status-callback'}});assert.equal(bad.body.error.code,-32015);assert.equal(requests,0);
+ const failure=(await inspect()).body.result.structuredContent.subscription_diagnostics.at(-1);assert.equal(failure.stage,'policy');assert.equal(failure.reason,'callback_policy_required');assert.equal(failure.hostname,'unapproved.example');
+ const subscription=await post('events/subscribe',params);assert.equal(subscription.status,200);const expires=Date.parse(subscription.body.result.refreshBefore);
+ app.bridge.gatewayConnected=()=>true; // Synthetic observation; no provider SDK or real account is started.
+ const store=app.bridge.store;store.ingest({id:'status-message',sourceEventId:'status-event',owner:c.ownerOpenId,tenantKey:c.tenantKey,chatId:c.ownerChatId,text:'PRIVATE_STATUS_BODY',timestamp:new Date(now).toISOString(),expires:now+120000},'status-replay',now);
+ for(let i=0;i<18;i++)store.run('INSERT INTO jobs(id,kind,message_id,subscription_id,state,next_at) VALUES (?,?,?,?,?,?)',`status-${i}`,i<12?'reply':i<16?'stream':'feedback','status-message',subscription.body.result.id,i<12?'pending':i<16?'processing':'uncertain',now);
+ const businessSnapshot=()=>JSON.stringify({subscriptions:store.all('SELECT * FROM subscriptions ORDER BY id'),jobs:store.all('SELECT * FROM jobs ORDER BY id'),replies:store.all('SELECT * FROM replies ORDER BY message_id'),metadata:store.all('SELECT * FROM metadata ORDER BY key')});
+ const before=businessSnapshot(),snapshot=(await inspect()).body.result.structuredContent;
+ assert.equal(businessSnapshot(),before);assert.deepEqual(snapshot.reply_work,{pending:12,processing:4,uncertain:2});assert.equal(snapshot.subscription_active,true);
+ assert.equal(snapshot.subscription_status.expires_at,new Date(expires).toISOString());assert.equal(snapshot.gateway_connected,true);
+ for(const canary of ['private-status-callback','PRIVATE_STATUS_BODY',params.delivery.secret,fixtureSecret])assert.equal(JSON.stringify(snapshot).includes(canary),false);
+ for(const identity of [c.ownerOpenId,c.ownerChatId])assert.equal(JSON.stringify(snapshot).includes(JSON.stringify(identity)),false);
+ now=expires+1;const expired=(await inspect()).body.result.structuredContent;assert.equal(expired.subscription_status.state,'expired');assert.equal(expired.subscription_active,false);
+ await app.close();const reopened=createApp(c,{approvedLive:true,worker:false,clock:()=>now,send});beforeFixtureCleanup(t,()=>reopened.close());
+ assert.equal(reopened.bridge.runtimeStatus().subscription_status.expires_at,new Date(expires).toISOString());assert.equal(reopened.bridge.runtimeStatus().subscription_diagnostics.length,2);
+});
 test('gateway waits for valid owner subscription and closes on expiry',async()=>{
  let active=null,starts=0,closes=0;let now=1000;
  class Dispatcher{register(){return this;}async invoke(){}}

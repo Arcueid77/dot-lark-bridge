@@ -1,9 +1,9 @@
 {
   "name": "dot-lark-bridge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "Owner-only Feishu bot private-text bridge to an existing dot through MCP Events",
+  "description": "Owner-controlled Feishu messages and attachments for an existing ChatGPT dot through MCP Events",
   "license": "MIT",
   "engines": {
     "node": ">=24.15 <25"
@@ -21,7 +21,7 @@
     "serve": "node --env-file-if-exists=.env scripts/run-service.js"
   },
   "dependencies": {
-    "@dot-bridge/core": "file:vendor/dot-bridge-core-0.5.1.tgz",
+    "@dot-bridge/core": "file:vendor/dot-bridge-core-0.6.3.tgz",
     "@larksuiteoapi/node-sdk": "1.74.0"
   },
   "exports": {

@@ -7,11 +7,15 @@
 
 这些功能需要受保护的交互配置及对应的飞书权限。未设置 `LARK_INTERACTION_POLICY_FILE` 时，默认只处理本人私聊文字；图片、语音、文件、表情、卡片和群聊需要按下文开启。
 
+`check_lark_readiness` 会分别显示网关、原 dot 订阅及实际到期时间，并统计所有待发送、发送中和结果不明的任务。网关会等待有效订阅，缺少订阅时应先在原 dot 完成订阅。没有现成错误记录时会明确显示无法还原；查看状态不会重订阅或改配置。
+
+飞书组件仍使用 `MCP_CALLBACK_ALLOWED_HOSTS`。如果误填了新渠道使用的 `CALLBACK_HOSTS`，状态会提示名称不匹配；该名称不会自动生效，也不会把其中域名加入允许列表。
+
 ## 支持的体验
 
 - 接收消息后先落库，再添加 `Typing` 表情和“已接收，等待处理”卡片。dot 实际调用 `begin_lark_reply` 后才显示“正在处理”；生成段落后调用 `append_lark_reply` 更新同一卡片，最后 `reply_to_lark` 完成它。没有可用的模型原始 token 流，不用回放已完成的答案模拟流式输出。
 - 收发文字、富文本、图片、文件和语音；原消息回复接口固定收件人。Markdown 保留代码块、列表和表格。模型生成的 `<at>` 不会通知其他人或全群。
-- 文字输入上限 20,000 JavaScript 字符，完整回答 30,000 字符；每个资源上限 8 MiB、每条至多 10 个资源。长回答超过保守的行内字节预算时，卡片显示预览并附上一个完整 Markdown 文件；这是一个逻辑回答的卡片与附件，不是重复回答。
+- 文字输入上限 20,000 JavaScript 字符，完整回答 30,000 字符；每个资源上限 5 MiB、每条至多 10 个资源。长回答超过保守的行内字节预算时，卡片显示预览并附上一个完整 Markdown 文件；这是一个逻辑回答的卡片与附件，不是重复回答。
 - 引用消息按原会话查询。上下文只读保留期内、当前消息之前的已授权消息；私聊和不同群分开。群默认按发送人分开，可显式选择群内共享上下文。原 dot 的全局记忆并没有新的物理隔离，群任务规则必须禁止调用或披露私聊记忆。
 - 文件提供原始 MCP resource，同时尝试提取 UTF-8 文本、PDF、DOCX、XLSX、PPTX。失败明确标注 `unsupported`，不是声称已经读懂。语音通过原 dot 支持的 MCP audio 内容传入；出站非 Opus 音频经受限 FFmpeg 转为 Opus，不另建模型 API 或转写机器人。
 - 失败、超时、撤销或发送结果不明会更新已知卡片并移除自己的处理表情。没有 callback 时不伪造 dot 已收到。结果不明保留 `uncertain`，禁止自动重发。权限撤销后不再发送或读取该会话。
@@ -96,7 +100,7 @@ Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg
 
 非 Opus 语音转换和 PDF/Office 提取也需要下文的 `DOT_BRIDGE_AUDIO_GUARD`：复用受保护的防转储组件，并禁止 core dump。未安装时这些转换保持关闭，已有 Opus 音频、图片和普通文件传递不受影响。不要为启用转换放宽系统文件或私有目录权限。
 
-图片回复接受 PNG、JPEG、GIF、WebP；语音回复接受已有 Ogg、WAV、MP3 音频，按飞书要求转成 Opus。桥不提供文字转语音。文件和媒体上限仍为 8 MiB，官方格式见[图片上传](https://open.feishu.cn/document/server-docs/im-v1/image/create)和[文件上传](https://open.feishu.cn/document/server-docs/im-v1/file/create)。
+图片回复接受 PNG、JPEG、GIF、WebP；语音回复接受已有 Ogg、WAV、MP3 音频，按飞书要求转成 Opus。桥不提供文字转语音。文件和媒体上限仍为 5 MiB，官方格式见[图片上传](https://open.feishu.cn/document/server-docs/im-v1/image/create)和[文件上传](https://open.feishu.cn/document/server-docs/im-v1/file/create)。
 
 更新后，从本人私聊发送文字、图片、短语音和小文件，确认回复回到原会话。开启卡片或群聊功能时，再检查对应的卡片更新、触发规则和成员限制。普通服务重启后，已回复的消息不应再次发送；断开 SSH 后服务应继续运行。整台 VPS 重启需另行安排。
 
@@ -110,7 +114,7 @@ Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg
 
 在后端环境文件设置 `DOT_BRIDGE_AUDIO_TRANSCRIPTION=local-whisper`、`DOT_BRIDGE_WHISPER_BINARY` 和 `DOT_BRIDGE_WHISPER_MODEL`。后两项是已安装、root 所有且服务用户不可修改的 whisper-cli 与多语言模型绝对路径；另需 `/usr/bin/ffmpeg`、`prlimit`、`flock`。与 QQ 共用原 `BRIDGE_LOCK_DIRECTORY`，一次只转写一条。音频通过内存管道处理，无需 API key，不发往外部转写服务，回答仍由原 dot 生成。
 
-单条限制为 8 MiB、两分钟音频、28 秒转写，最多返回 12000 字符。繁忙、超时或听不清会标明 `extraction_status:unsupported`；没有可用音频或文字时，请发送者重发较短语音或文字。只有读取结果中存在转写才说明本次成功，媒体开关或附件下载成功本身并不代表 dot 能听懂。
+单条限制为 5 MiB、两分钟音频、28 秒转写，最多返回 12000 字符。繁忙、超时或听不清会标明 `extraction_status:unsupported`；没有可用音频或文字时，请发送者重发较短语音或文字。只有读取结果中存在转写才说明本次成功，媒体开关或附件下载成功本身并不代表 dot 能听懂。
 
 从已安装的 core 包中编译 `audio/no-core-dump.c`，把生成的共享库放入同样受保护的运行目录，并设置 `DOT_BRIDGE_AUDIO_GUARD` 为其绝对路径。它禁止音频进程生成内存转储，避免系统崩溃收集器保存语音；缺少保护时不执行本地转写。
 

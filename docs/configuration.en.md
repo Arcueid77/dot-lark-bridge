@@ -6,11 +6,15 @@ This page covers images, audio, files, cards and group settings for your existin
 
 These features require a protected interaction configuration and the corresponding Feishu permissions. Without `LARK_INTERACTION_POLICY_FILE`, the bridge handles only the owner's private text messages. Enable media, reactions, cards and groups using the settings below.
 
+`check_lark_readiness` reports gateway and original-dot subscription state separately, including the stored expiry and complete pending, processing and uncertain outbound-work counts. The gateway waits for a valid subscription. Missing diagnostic history cannot reconstruct an earlier failure. Reading status never renews a subscription or changes configuration.
+
+Feishu continues to use `MCP_CALLBACK_ALLOWED_HOSTS`. A mistakenly supplied `CALLBACK_HOSTS` setting is reported as a name mismatch; its domains are not accepted or copied automatically.
+
 ## Supported experience
 
 - After durable intake, the bridge can add a `Typing` reaction and an “received, waiting” card. The card changes to “processing” only after dot calls `begin_lark_reply`. `append_lark_reply` updates that card with genuinely generated paragraphs; `reply_to_lark` finishes it. There is no raw model token stream, and completed answers must not be replayed to fake streaming.
 - Text, rich text, images, files and audio can be received/replied to through the fixed original-message route. Markdown retains code blocks, lists and tables. Model-generated `<at>` text cannot notify another member or everyone.
-- Input is bounded to 20000 JavaScript characters; a complete answer to 30000. Each resource is at most 8 MiB, with at most ten per message. Above the conservative inline byte budget, the card shows a preview and attaches the full Markdown answer. That is one logical answer with an attachment, not duplicate answering.
+- Input is bounded to 20000 JavaScript characters; a complete answer to 30000. Each resource is at most 5 MiB, with at most ten per message. Above the conservative inline byte budget, the card shows a preview and attaches the full Markdown answer. That is one logical answer with an attachment, not duplicate answering.
 - Quotations are fetched only from the original conversation. Context contains authorized preceding messages within retention. Private chats and groups are separate; group context defaults to each sender, with explicit group-wide context available. The original dot's global memory has no new physical isolation, so group task instructions must prohibit private-memory disclosure.
 - Files expose the original MCP resource and attempt UTF-8, PDF, DOCX, XLSX or PPTX extraction. Unsupported extraction is labeled honestly. Audio is passed as MCP audio for the original dot to interpret; outbound non-Opus audio uses restricted FFmpeg conversion. No additional model API or transcription bot is introduced.
 - Failures, expiry, revocation and uncertain sends update a known card and remove the bridge's own processing reaction where permitted. Missing callbacks never masquerade as dot receipt. Uncertain outcomes remain `uncertain` without automatic resend; revocation prevents further reads/sends.
@@ -95,7 +99,7 @@ Use Node 24.15–24.x and OpenSSL. Media conversion needs protected Linux `/usr/
 
 Non-Opus conversion and PDF/Office extraction also require the protected `DOT_BRIDGE_AUDIO_GUARD` component described below; core dumps are disabled. These conversions remain off without the guard. Existing Opus audio, images and ordinary file transfer still work. Do not weaken system-file or private-directory permissions to enable conversion.
 
-Image replies accept PNG, JPEG, GIF and WebP. Audio replies accept existing Ogg, WAV and MP3, converting to Opus as required by Feishu; no text-to-speech service is included. The bridge's 8 MiB cap still applies. See the official [image upload](https://open.feishu.cn/document/server-docs/im-v1/image/create) and [file upload](https://open.feishu.cn/document/server-docs/im-v1/file/create) references.
+Image replies accept PNG, JPEG, GIF and WebP. Audio replies accept existing Ogg, WAV and MP3, converting to Opus as required by Feishu; no text-to-speech service is included. The bridge's 5 MiB cap still applies. See the official [image upload](https://open.feishu.cn/document/server-docs/im-v1/image/create) and [file upload](https://open.feishu.cn/document/server-docs/im-v1/file/create) references.
 
 After updating, send text, an image, a short voice message and a small file from your private chat, and confirm each reply returns to that conversation. If cards or groups are enabled, also check their updates, trigger rules and member limits. Restarting the service should not resend completed replies, and disconnecting SSH should leave the service running. Plan a whole-server reboot separately.
 
@@ -109,7 +113,7 @@ Some ChatGPT hosts omit native MCP audio. With local transcription enabled, `get
 
 Set `DOT_BRIDGE_AUDIO_TRANSCRIPTION=local-whisper`, `DOT_BRIDGE_WHISPER_BINARY` and `DOT_BRIDGE_WHISPER_MODEL` in the backend environment. Use absolute paths to a reviewed root-owned whisper-cli and multilingual model, neither writable by the service user. Install `/usr/bin/ffmpeg`, `prlimit`, `flock`. Share the existing private `BRIDGE_LOCK_DIRECTORY` with QQ to serialize recognition. Audio uses memory pipes on the VPS; no API key or external transcription service is involved.
 
-Limits: 8 MiB, 120 seconds of audio, 28 seconds of recognition and 12000 output characters. Busy, timed-out or unclear audio returns `extraction_status:unsupported`; ask for a shorter recording or text if neither representation is usable. A media switch or successful download alone does not establish that the dot understood the voice.
+Limits: 5 MiB, 120 seconds of audio, 28 seconds of recognition and 12000 output characters. Busy, timed-out or unclear audio returns `extraction_status:unsupported`; ask for a shorter recording or text if neither representation is usable. A media switch or successful download alone does not establish that the dot understood the voice.
 
 Compile core's included `audio/no-core-dump.c` as a shared library in the protected runtime directory and set its absolute path in `DOT_BRIDGE_AUDIO_GUARD`. Audio subprocesses are made nondumpable so piped crash collectors cannot retain voice memory. Local recognition refuses to run without this protection.
 

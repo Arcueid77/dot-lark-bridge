@@ -1,8 +1,8 @@
 // Shared Lark schemas: one source for backend and closed aggregate projection.
-import {validateMedia} from '@dot-bridge/core/channels/media.js';
+import {validateMedia,MAX_MEDIA_BYTES,MAX_MEDIA_BASE64} from '@dot-bridge/core/channels/media.js';
 import {hash} from './common.js';
-export const LARK_INPUT_LIMIT = 20000, LARK_REPLY_LIMIT = 30000, LARK_MEDIA_BYTES = 8 * 1024 * 1024;
-export const LARK_BASE64_LIMIT = Math.ceil(LARK_MEDIA_BYTES / 3) * 4;
+export const LARK_INPUT_LIMIT = 20000, LARK_REPLY_LIMIT = 30000, LARK_MEDIA_BYTES = MAX_MEDIA_BYTES;
+export const LARK_BASE64_LIMIT = MAX_MEDIA_BASE64;
 export const larkIdSchema = { type: 'string', minLength: 1, maxLength: 256 };
 export const larkStatusSchema = { type: 'object', properties: { message_id: larkIdSchema, status: { type: 'string', enum: ['none','pending','processing','sent','expired','dead','cancelled','uncertain'] }, error: { type: ['string','null'] } }, required: ['message_id','status','error'], additionalProperties: false };
 const bounded = max => ({ type:'string',minLength:1,maxLength:max });

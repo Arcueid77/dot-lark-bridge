@@ -14,6 +14,7 @@ import { makePublicRequester } from '../src/network.js';
 import { createFeishuAgent } from '../src/lark-runtime.js';
 import {createMediaUploadRequester} from '../src/formal-sender.js';
 import {createInteractionsApi} from '../src/lark-interactions-api.js';
+import {MAX_ATTACHMENT_BYTES} from '../src/interaction-policy.js';
 const HOST = 'open.feishu.cn';
 let dir, ca, target, proxy, wss, proxyEnv, connects = [], received = [];
 const sockets = new Set();
@@ -48,15 +49,16 @@ const options={method:'GET',hosts:[HOST]};
 test('native provider HTTPS uses loopback CONNECT with original hostname TLS verification',async()=>{const n=connects.length;const out=await requester()(`https://${HOST}/`,options);assert.equal(out.status,200);assert.equal(out.body.toString(),'fixture-ok');assert.equal(connects[n],`${HOST}:443`);assert.equal(received.at(-1).host,HOST);assert.equal(received.at(-1).proxyAuth,undefined);});
 test('provider redirects and response limits fail closed',async()=>{await assert.rejects(requester()(`https://${HOST}/redirect`,options),e=>e.data.reason==='redirect_rejected');await assert.rejects(requester({maxBytes:100})(`https://${HOST}/large`,options));});
 
-test('full 8 MiB media uploads use the bounded official multipart path through the existing TLS proxy',async()=>{
-  const upload=createMediaUploadRequester({proxyEnv,providerSend:requester({maxBytes:8*1024*1024+65536,timeoutMs:10000})});
+test('full 5 MiB media uploads use the bounded official multipart path through the existing TLS proxy',async()=>{
+  assert.equal(MAX_ATTACHMENT_BYTES,5*1024*1024);
+  const upload=createMediaUploadRequester({proxyEnv,providerSend:requester({maxBytes:MAX_ATTACHMENT_BYTES+65536,timeoutMs:10000})});
   const send=()=>assert.fail('large upload used the ordinary small-body sender');send.uploadRequester=upload;
   const api=createInteractionsApi({},send,{token:async()=> 'synthetic-only-token'});
-  assert.equal(await api.upload('file',Buffer.alloc(8*1024*1024,65),'large.bin',()=>{}),'synthetic-upload');
-  assert.ok(received.at(-1).uploadBytes>8*1024*1024);assert.ok(received.at(-1).uploadBytes<8*1024*1024+65536);assert.equal(received.at(-1).host,HOST);
+  assert.equal(await api.upload('file',Buffer.alloc(MAX_ATTACHMENT_BYTES,65),'large.bin',()=>{}),'synthetic-upload');
+  assert.ok(received.at(-1).uploadBytes>MAX_ATTACHMENT_BYTES);assert.ok(received.at(-1).uploadBytes<MAX_ATTACHMENT_BYTES+65536);assert.equal(received.at(-1).host,HOST);
   const before=connects.length,request={purpose:'provider',hosts:[HOST],body:Buffer.from('synthetic')};
   for(const target of [`https://${HOST}/open-apis/im/v1/messages`,`https://${HOST}/open-apis/im/v1/files?target=other`,`https://${HOST}/open-apis/im/v1/files#x`,'https://attacker.invalid/open-apis/im/v1/files'])assert.throws(()=>upload(target,request));
-  for(const changed of [{...request,method:'GET'},{...request,purpose:'callback'},{...request,hosts:['attacker.invalid']},{...request,body:Buffer.alloc(8*1024*1024+65537)}])assert.throws(()=>upload(`https://${HOST}/open-apis/im/v1/files`,changed));
+  for(const changed of [{...request,method:'GET'},{...request,purpose:'callback'},{...request,hosts:['attacker.invalid']},{...request,body:Buffer.alloc(MAX_ATTACHMENT_BYTES+65537)}])assert.throws(()=>upload(`https://${HOST}/open-apis/im/v1/files`,changed));
   await assert.rejects(upload(`https://${HOST}/open-apis/im/v1/files`,{...request,beforeConnect(){throw new Error('revoked');}}),/revoked/);assert.equal(connects.length,before);
 });
 test('provider opt-in cannot route arbitrary or malformed destinations',async()=>{const n=connects.length;for(const url of ['https://attacker.invalid/','http://'+HOST+'/',`https://${HOST}:444/`,`https://u:p@${HOST}/`,`https://${HOST}/#x`])await assert.rejects(requester()(url,{...options,hosts:[new URL(url).hostname]}));assert.equal(connects.length,n);});

@@ -4,6 +4,7 @@ import http from 'node:http';
 import { TextDecoder } from 'node:util';
 import { Bridge } from './bridge.js';
 import { BridgeError, object, rpcResult } from './common.js';
+import {MEDIA_RPC_LIMIT} from '@dot-bridge/core/channels/media.js';
 import { createAuthenticator } from './auth.js';
 import { makePublicRequester } from './network.js';
 import { createLarkRuntime } from './lark-runtime.js';
@@ -15,7 +16,7 @@ function json(res, status, value, headers = {}) {
   res.end(JSON.stringify(value));
 }
 async function readBody(req) {
-  const limit=req.headers['mcp-name']==='reply_lark_media'?12*1024*1024:['reply_to_lark','append_lark_reply'].includes(req.headers['mcp-name'])?262144:32768;
+  const limit=req.headers['mcp-name']==='reply_lark_media'?MEDIA_RPC_LIMIT:['reply_to_lark','append_lark_reply'].includes(req.headers['mcp-name'])?262144:32768;
   if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) throw new BridgeError('Expected application/json', { status: 415 });
   if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') throw new BridgeError('Compressed bodies are unsupported', { status: 415 });
   if (Number(req.headers['content-length']) > limit) throw new BridgeError('Request too large', { status: 413 });
@@ -78,6 +79,7 @@ export function createApp(config, { clock = Date.now, send = makePublicRequester
   const bridge = new Bridge(config, { clock, send });
   let interval, lastTick = Promise.resolve(), stopping = false, lastPrune = 0;
   const larkRuntime = createLarkRuntime(config, bridge.store, clock, { sdk, report, send, isStopping: () => stopping });
+  bridge.gatewayConnected=()=>{const state=larkRuntime.status();return ['disabled','connecting','reconnecting','connected','failed','idle'].includes(state)?state==='connected':undefined;};
   const readiness = () => {
     const configured = bridge.ready(), subscribed = !!bridge.store.activeSubscription(clock()), connected = larkRuntime.status() === 'connected';
     return { callback_transport: bridge.callbackTransportStatus(), bridge_configuration_ready: configured, mcp_subscription_active: subscribed, gateway_connected: connected,

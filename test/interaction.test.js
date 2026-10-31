@@ -77,8 +77,29 @@ test('all-message and keyword groups bind replies and context to the original gr
   assert.equal(f.calls.replies.length,1);assert.equal(f.app.bridge.store.replyStatus('revoked').status,'cancelled');
 });
 test('typing reaction starts only after durable acceptance, disappears on positive reply acknowledgement, and does not block callback delivery',async t=>{
-  const f=await setup(t);await f.subscribe();await f.receive('reaction');await f.app.bridge.interactions.tickFeedback();assert.equal(f.calls.reactions.length,1);
-  await f.app.bridge.tick();await f.tool('reply_to_lark',{message_id:'reaction',text:'答复'});await f.app.bridge.tick();f.advance(5001);await f.app.bridge.interactions.tickFeedback();assert.equal(f.calls.deletes.length,1);assert.equal(f.app.bridge.store.replyStatus('reaction').status,'sent');
+  const f=await setup(t,[],{policy:{render:'text',streaming:false}});await f.subscribe();await f.receive('reaction');
+  assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:1,processing:0,uncertain:0});
+  await f.app.bridge.interactions.tickFeedback();assert.equal(f.calls.reactions.length,1);
+  assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:0,processing:0,uncertain:0}); // displayed active indicator
+  await f.app.bridge.tick();await f.tool('reply_to_lark',{message_id:'reaction',text:'答复'});await f.app.bridge.tick();
+  assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:1,processing:0,uncertain:0}); // actual terminal cleanup
+  f.advance(5001);await f.app.bridge.interactions.tickFeedback();assert.equal(f.calls.deletes.length,1);assert.equal(f.app.bridge.store.replyStatus('reaction').status,'sent');
+  assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:0,processing:0,uncertain:0});
+});
+
+test('feedback status observes a held lease, treats expiry as uncertain, and never mutates that lease',async t=>{
+ let entered,release;const started=new Promise(resolve=>{entered=resolve;});
+ const f=await setup(t,[],{policy:{render:'text',streaming:false},send:async(url,request)=>{
+  if(url.endsWith('/reactions')&&request.method!=='GET'){entered();return new Promise(resolve=>{release=()=>resolve({status:200,body:Buffer.from(JSON.stringify({code:0,data:{reaction_id:'synthetic-held-reaction'}}))});});}
+ }});await f.subscribe();await f.receive('held-feedback');
+ const pending=f.app.bridge.interactions.tickFeedback();
+ try{
+  await started;assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:0,processing:1,uncertain:0});
+  const before=f.app.bridge.store.get('SELECT * FROM feedback WHERE message_id=?','held-feedback');f.advance(60001);
+  assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:0,processing:0,uncertain:1});
+  assert.deepEqual(f.app.bridge.store.get('SELECT * FROM feedback WHERE message_id=?','held-feedback'),before);
+ }finally{release?.();await pending;}
+ assert.deepEqual(f.app.bridge.runtimeStatus().reply_work,{pending:0,processing:0,uncertain:0});
 });
 test('generated chunks are ordered/idempotent and finalization updates one card without a second text reply',async t=>{
   const f=await setup(t);await f.subscribe();await f.receive('stream');await f.app.bridge.tick();

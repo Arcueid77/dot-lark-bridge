@@ -9,6 +9,7 @@ import {privateMkdtempSync,privateMkdirSync,cleanupPrivateFixture,beforeFixtureC
 import {createApp} from '@dot-bridge/core/router/server.js';
 import {larkAdapter} from '../src/tunnel-adapter.js';
 import {OWNER,SERVICE_HEADER,VERSION,metadata} from '@dot-bridge/core/router/common.js';
+import {sameSchema} from '@dot-bridge/core/router/catalog.js';
 const larkRoot=new URL('../src/',import.meta.url);
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=','base64');
 
@@ -43,7 +44,9 @@ test('standalone actual Feishu rich/group contract works without a QQ repository
   const app=createApp({host:'127.0.0.1',port:8789,owner:OWNER,ingressKeyFile:keyFiles[0],channels:{lark:{keyFile:keyFiles[2],port:la.port,adapter:larkAdapter}},operation:'live',liveChannels:['lark']},{approvedLive:true});beforeFixtureCleanup(t,()=>app.close());const a=await app.listen(0);
   const post=(method,params={})=>new Promise((resolve,reject)=>{const req=http.request({host:'127.0.0.1',port:a.port,path:'/mcp',method:'POST',agent:false,headers:{[SERVICE_HEADER]:keys[0],'content-type':'application/json',accept:'application/json, text/event-stream','mcp-method':method,'mcp-protocol-version':VERSION,...(method==='tools/call'?{'mcp-name':params.name}:{})}},res=>{const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(Buffer.concat(chunks))}));});req.on('error',reject);req.end(JSON.stringify({jsonrpc:'2.0',id:1,method,params:{...params,_meta:metadata()}}));});
   const call=(name,args={})=>post('tools/call',{name,arguments:args});
-  assert.equal((await post('tools/list')).body.result.tools.some(tool=>tool.name==='reply_to_qq'),false);
+  const catalog=await post('tools/list');
+  if(catalog.status!==200){const local=await lark.bridge.rpc('tools/list',{}, {id:config.principal,validUntil:Date.now()+60000}),expected=[...larkAdapter.liveTools,larkAdapter.backendSetupTool];assert.fail(JSON.stringify({response:catalog.body,tools:local.tools.map(tool=>{const target=expected.find(t=>t.name===tool.name);return {name:tool.name,input:!!target&&sameSchema(tool.inputSchema,target.inputSchema),output:!!target&&larkAdapter.matchesBackendOutputSchema(tool.name,tool.outputSchema,target.outputSchema,sameSchema),annotations:!!target&&sameSchema(tool.annotations,target.annotations)};})}));}
+  assert.equal(catalog.body.result.tools.some(tool=>tool.name==='reply_to_qq'),false);
   assert.equal((await post('events/subscribe',{name:'lark.message.created',arguments:{conversation:'configured'},delivery:{mode:'webhook',url:'https://callback.example.test/source',secret:'whsec_'+Buffer.alloc(32,66).toString('base64')},ttlMs:60000})).status,200);
   const dispatcher=createLarkDispatcher(config,lark.bridge.store,Date.now,{verifyGroupIdentity:()=>lark.bridge.interactions.api.verifyBot(()=>{})});
   const now=Date.now(),payload={schema:'2.0',header:{event_id:'event',event_type:'im.message.receive_v1',create_time:String(now),app_id:config.larkAppId,tenant_key:'tenant'},event:{sender:{sender_type:'user',tenant_key:'tenant',sender_id:{open_id:'guest'}},message:{message_id:'message',chat_type:'group',chat_id:'group',message_type:'post',create_time:String(now),content:JSON.stringify({zh_cn:{title:'',content:[[{tag:'text',text:'长'.repeat(5000)},{tag:'img',image_key:'img-fixture'}]]}})}}};

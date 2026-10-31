@@ -13,6 +13,8 @@ import { MAX_REPLY_TEXT, routeAllowed } from './interaction-policy.js';
 import { conversationReference, messageContext } from './conversation-store.js';
 import { InteractionState } from './interaction-state.js';
 import {readableFile} from './media-process.js';
+import {inspectLegacyRuntimeStatus,legacySubscriptionDiagnostics} from '@dot-bridge/core/channels/legacy-status.js';
+import {trackSubscriptionAttempt} from '@dot-bridge/core/channels/status.js';
 
 export const EVENT_NAME = 'lark.message.created';
 const argsSchema = larkEventArguments;
@@ -36,6 +38,10 @@ export class Bridge {
     return c.authMode !== 'deny' && !!(c.larkAppId && c.larkAppSecret && c.ownerOpenId && c.tenantKey && c.ownerChatId && c.principal );
   }
   callbackTransportStatus() { return callbackTransportStatus(this.send); }
+  runtimeStatus() {
+    return inspectLegacyRuntimeStatus(this.store,{principal:this.config.principal,now:this.clock(),callbackHosts:this.config.callbackHosts,bindingReady:this.bindingReady(),
+      gatewayConnected:this.gatewayConnected?.(),wrongSettingPresent:this.config.callbackWrongSettingPresent,callbackAllowed:sub=>this.callbackAuthorized(sub)});
+  }
   ready() { return this.bindingReady() && (!!this.config.callbackHosts.length || ownerScopedProxy(this.config)) && (!tunnelLive(this.config) || this.callbackTransportStatus().ready); }
   callbackAuthorized(subscription) {
     try { const hosts=ownerScopedProxy(this.config)&&!this.config.callbackHosts.length?[new URL(subscription.url).hostname]:this.config.callbackHosts;destinationUrl(subscription?.url,hosts);return !ownerScopedProxy(this.config)||subscription.principal===this.config.principal; } catch { return false; }
@@ -54,6 +60,10 @@ export class Bridge {
     return `sub_${hash(canonical({ principal, url, name, arguments: args }))}`;
   }
   async subscribe(params, principal) {
+    const diagnostics=legacySubscriptionDiagnostics(this.store);
+    return trackSubscriptionAttempt(params,d=>this.subscribeVerified(params,principal,d),{clock:this.clock,...diagnostics});
+  }
+  async subscribeVerified(params, principal, diagnostic) {
     object(params, ['name', 'arguments', 'delivery', 'cursor', 'ttlMs', '_meta'], ['name', 'arguments', 'delivery']);
     if (!this.bindingReady()) throw new BridgeError('Bridge owner binding is not configured', { code: -32012 });
     this.eventArgs(params.name, params.arguments);
@@ -64,20 +74,24 @@ export class Bridge {
     string(params.delivery.url, 2048);
     const candidate = new URL(params.delivery.url);
     destinationUrl(params.delivery.url, [candidate.hostname]);
+    diagnostic.stage='policy';
     if ((!ownerScopedProxy(this.config)||this.config.callbackHosts.length)&&!this.config.callbackHosts.includes(candidate.hostname)) throw new BridgeError('Callback hostname requires owner-approved policy', { code: -32015, data: { reason: 'callback_policy_required', callback_hostname: candidate.hostname } });
     const callbackHosts=this.config.callbackHosts.length?this.config.callbackHosts:[candidate.hostname];
     destinationUrl(params.delivery.url, callbackHosts);
     webhookKey(params.delivery.secret);
+    diagnostic.stage='transport';
     const transport = this.callbackTransportStatus();
     if (tunnelLive(this.config) && !transport.ready) throw new BridgeError('Callback transport is not ready', { code: -32015, data: { reason: transport.reason, callback_transport: transport } });
     const now = this.clock(), id = this.subscriptionId(principal.id, params.delivery.url, params.name, params.arguments);
     const expectedEpoch = this.store.subscriptionEpoch(id);
+    diagnostic.stage='persist';
     const existing = this.store.subscription(id), active = this.store.activeSubscription(now);
     if (active && active.id !== id) throw new BridgeError('Unsubscribe the current dot before subscribing another', { code: -32013, data: { limit: 'subscriptions', max: 1 } });
     const lifetime = params.ttlMs === null || params.ttlMs === undefined ? this.config.subscriptionTtlMs : Math.min(params.ttlMs, this.config.subscriptionTtlMs);
     const expires = Math.min(now + lifetime, principal.validUntil);
     if (expires <= now) throw new BridgeError('Authorization expired', { code: -32012 });
     let verifiedUntil = existing?.verified_until ?? 0;
+    diagnostic.stage='challenge';
     if (!existing?.active || existing.secret !== params.delivery.secret || verifiedUntil <= now) {
       const challenge = randomBytes(32).toString('base64url'), body = Buffer.from(JSON.stringify({ type: 'verification', challenge }));
       const subscription = { id, secret: params.delivery.secret };
@@ -104,6 +118,7 @@ export class Bridge {
       { oldSecret: existing?.oldSecret, oldSecretUntil: existing?.oldSecretUntil };
     const currentTransport = this.callbackTransportStatus();
     if (tunnelLive(this.config) && !currentTransport.ready) throw new BridgeError('Callback transport is not ready', { code: -32015, data: { reason: currentTransport.reason, callback_transport: currentTransport } });
+    diagnostic.stage='persist';
     this.store.saveSubscription({ id, scope: params.arguments.conversation, principal: principal.id, url: params.delivery.url, secret: params.delivery.secret,
       expires, verified_until: verifiedUntil, expectedEpoch, ...rotation }, this.clock());
     return { id, refreshBefore: new Date(expires).toISOString(), cursor: null, truncated: false };
@@ -144,7 +159,7 @@ export class Bridge {
           if(result.callback_transport?.ready&&['direct','owner_scoped_proxy'].includes(result.callback_transport.mode)){
             const sub=this.store.activeSubscription(this.clock());result.pending_messages=sub&&this.callbackAuthorized(sub)&&result.delivery_configured?this.store.pendingMessages(principal.id,this.clock()):[];
           }
-          return toolResult(result);
+          return toolResult({...result,...this.runtimeStatus()});
         }
         if (params.name === 'get_lark_message') {
           object(params.arguments, ['message_id'], ['message_id']); string(params.arguments.message_id, 256);
