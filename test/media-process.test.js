@@ -15,6 +15,13 @@ test('native media conversion refuses a missing nondumpable guard before running
   finally{if(previous===undefined)delete process.env.DOT_BRIDGE_AUDIO_GUARD;else process.env.DOT_BRIDGE_AUDIO_GUARD=previous;}
 });
 
+test('text document excerpts share UTF-16 decoding and preserve Unicode boundaries at the Lark limit',async()=>{
+ const text='UTF-16 text 文档';
+ assert.deepEqual(await readableFile(Buffer.concat([Buffer.from([255,254]),Buffer.from(text,'utf16le')]),'text/plain'),{extraction_status:'complete',extracted_text:text});
+ const result=await readableFile(Buffer.from('a'.repeat(29999)+'🙂more'),'text/plain');
+ assert.equal(result.extraction_status,'truncated');assert.equal(result.extracted_text,'a'.repeat(29999));
+});
+
 test('protected Linux child is nondumpable with zero core limit and bounded stdout',{skip:process.platform!=='linux'||!process.env.DOT_BRIDGE_AUDIO_GUARD?'requires Linux and an installed protected DOT_BRIDGE_AUDIO_GUARD':false},async()=>{
   const result=await protectedMediaProcess('python3',['-I','-B','-c','import ctypes,json,resource; print(json.dumps({"dumpable":ctypes.CDLL(None).prctl(3),"core":resource.getrlimit(resource.RLIMIT_CORE)}))'],Buffer.from('synthetic'));
   assert.deepEqual(JSON.parse(result),{dumpable:0,core:[0,0]});result.fill(0);

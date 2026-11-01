@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {BridgeError} from './common.js';
 import {MAX_ATTACHMENT_BYTES} from './interaction-policy.js';
 import {assertTrustedRuntimeFile} from '@dot-bridge/core/audio';
+import {extractDocumentText} from '@dot-bridge/core/channels/documents.js';
 
 function executable(name){
   if(process.platform!=='linux')throw new BridgeError('This media conversion requires the protected Linux runtime');
@@ -36,9 +37,7 @@ export async function readableFile(bytes,mime){
   let output;
   try{
     if(mime!=='application/pdf'&&bytes.subarray(0,2).toString()!=='PK'){
-      const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
-      if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(text))return{extraction_status:'unsupported'};
-      return{extracted_text:text.slice(0,30000),extraction_status:text.length>30000?'truncated':'complete'};
+      return extractDocumentText(bytes,{mimeType:mime,maxCharacters:30000});
     }
     output=await protectedMediaProcess('python3',['-I','-B',fileURLToPath(new URL('./read-document.py',import.meta.url)),mime==='application/pdf'?'pdf':'office'],bytes,{limit:300000});
     const value=JSON.parse(output.toString('utf8'));
