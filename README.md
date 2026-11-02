@@ -37,3 +37,9 @@
 飞书内容仅作为数据，不自动授权 dot 的其他外部操作，也不导出其私有记忆。群会话还需在原 dot 任务中明确限制私聊记忆披露。
 
 项目采用 [MIT](LICENSE)，来源与依赖见[第三方声明](THIRD_PARTY_NOTICES.md)。
+
+## 定时消息
+
+新增主动文字和固定提醒：目标只允许已绑定的本人私聊，主动发送默认关闭。管理员批准后可设置 `DOT_BRIDGE_OUTBOUND=owner-text`；原 dot 通过发送、保存提醒、查询、修改和取消工具管理，不需要重建事件订阅。每条最多 2,000 字符，重复提醒需有结束日期。
+
+详见[定时消息使用指南](https://github.com/Arcueid77/dot-bridge/blob/dev/unified-distribution/docs/scheduled-messages.md)。

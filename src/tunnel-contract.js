@@ -1,6 +1,7 @@
 // Shared Lark schemas: one source for backend and closed aggregate projection.
 import {validateMedia,MAX_MEDIA_BYTES,MAX_MEDIA_BASE64} from '@dot-bridge/core/channels/media.js';
 import {hash} from './common.js';
+import {outboundDefinitions,isOutboundTool,validateOutboundArguments,projectOutboundResult} from '@dot-bridge/core/channels/outbound.js';
 export const LARK_INPUT_LIMIT = 20000, LARK_REPLY_LIMIT = 30000, LARK_MEDIA_BYTES = MAX_MEDIA_BYTES;
 export const LARK_BASE64_LIMIT = MAX_MEDIA_BASE64;
 export const larkIdSchema = { type: 'string', minLength: 1, maxLength: 256 };
@@ -25,6 +26,7 @@ export const larkToolDefinitions = [
   tool('begin_lark_reply','Begin a real Feishu reply card','Start one card for this source message when you actually begin processing. Wait for status; do not send a second reply. The card remains bound to the original source conversation.',obj({message_id:larkIdSchema}),larkStatusSchema),
   tool('append_lark_reply','Append generated answer text','Append genuinely generated text to the existing card with consecutive sequence numbers starting at one. Repeating the same sequence and text is idempotent. Never replay a completed answer in small pieces to simulate streaming.',obj({message_id:larkIdSchema,sequence:{type:'integer',minimum:1,maximum:100},text:bounded(5000)}),larkStatusSchema)
 ];
+larkToolDefinitions.push(...outboundDefinitions('lark'));
 export const LARK_TOOL_NAMES = new Set(larkToolDefinitions.map(tool => tool.name));
 import { RICH_TOOL_RESULT } from '@dot-bridge/core/router/common.js';
 export const RICH_LARK_RESULT = RICH_TOOL_RESULT;
@@ -42,6 +44,7 @@ function check(schema,value){
   if(schema.format==='date-time'&&(!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString()!==value))throw new Error('Invalid Lark timestamp');
 }
 export function validateLarkArguments(name,args){
+  if(isOutboundTool('lark',name))return validateOutboundArguments('lark',name,args);
   const tool=larkToolDefinitions.find(tool=>tool.name===name);if(!tool)throw new Error('Unknown Lark tool');check(tool.inputSchema,args);
   if(['reply_to_lark','append_lark_reply'].includes(name)&&!args.text.trim())throw new Error('Empty Lark text');
   if(name==='reply_lark_media'){
@@ -60,6 +63,7 @@ export function validateLarkArguments(name,args){
   return {...args};
 }
 export function projectLarkResult(call,result){
+  if(isOutboundTool('lark',call.name))return projectOutboundResult('lark',call,result);
   const tool=larkToolDefinitions.find(tool=>tool.name===call.name);if(!tool||result.isError!==false)throw new Error('Invalid Lark result');
   check(tool.outputSchema,result.structuredContent);const value=structuredClone(result.structuredContent);
   if(value.message_id!==call.arguments.message_id)throw new Error('Unbound Lark result');

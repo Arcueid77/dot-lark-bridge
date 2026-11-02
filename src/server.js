@@ -154,10 +154,10 @@ export function createApp(config, { clock = Date.now, send = makePublicRequester
     },
     async close() {
       if (!closing) closing = (async () => {
-        stopping = true; clearInterval(interval);clearInterval(feedbackInterval); larkRuntime.close();
+        stopping = true; bridge.outbox.closed=true; clearInterval(interval);clearInterval(feedbackInterval); larkRuntime.close();
         await listenSettled?.catch(() => {});
         await new Promise(resolve => server.close(resolve));
-        await lastTick;await feedbackTick; bridge.store.close();
+        await lastTick;await feedbackTick; await bridge.outbox.close(); bridge.store.close();
       })();
       return closing;
     }

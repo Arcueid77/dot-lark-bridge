@@ -6,6 +6,7 @@ import path from 'node:path';
 import { readBridgeMode } from './bridge-mode.js';
 import { loadCredentials } from './credentials.js';
 import { loadInteractionPolicy } from './interaction-policy.js';
+import {outboundEnabled} from '@dot-bridge/core/channels/outbound.js';
 
 function number(env, key, fallback, min, max) {
   const value = env[key] ? Number(env[key]) : fallback;
@@ -42,6 +43,7 @@ export function readConfig(env = process.env) {
   const mode = env.AUTH_MODE || 'deny';
   if (!['deny', 'dev', 'oauth', 'tunnel-service'].includes(mode)) throw new Error('Invalid AUTH_MODE');
   const config = {
+    outboundEnabled:outboundEnabled(env),
     interaction: loadInteractionPolicy(env.LARK_INTERACTION_POLICY_FILE), interactionPolicyFile: env.LARK_INTERACTION_POLICY_FILE || '',
     callbackTransportMode,
     credentialsFile: env.LARK_CREDENTIALS_FILE || '', expectedAppId: env.LARK_EXPECTED_APP_ID || '',

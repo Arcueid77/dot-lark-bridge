@@ -132,6 +132,14 @@ export function createLarkSender(config, send, clock = Date.now) {
     return data.data.message_id;
   };
   sendReply.token=getToken;
+  sendReply.sendOwnerMessage=async({text,idempotencyKey,authorize})=>{
+    if(config.authMode!=='tunnel-service'||config.bridgeMode!=='tunnel'||config.tunnelServiceOperation!=='live'||config.outboundEnabled!==true||!config.ownerChatId||!config.ownerOpenId||!config.tenantKey)throw new BridgeError('Feishu owner outbound is disabled',{code:-32012});
+    plainText(text,2000);authorize();const accessToken=await getToken(authorize);authorize();
+    const response=await send(`${FEISHU_ORIGIN}/open-apis/im/v1/messages?receive_id_type=chat_id`,{purpose:'provider',hosts:['open.feishu.cn'],headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:Buffer.from(JSON.stringify({receive_id:config.ownerChatId,msg_type:'text',content:JSON.stringify({text}),uuid:replyUuid(config.larkAppId,`outbound:${idempotencyKey}`)})),beforeConnect:authorize});
+    let data;try{data=JSON.parse(response.body.toString('utf8'));}catch{throw new BridgeError('Feishu outbound acknowledgement unknown',{uncertain:true});}
+    if(response.status!==200||data?.code!==0||typeof data.data?.message_id!=='string'||!data.data.message_id||data.data.chat_id!==config.ownerChatId)throw new BridgeError('Feishu outbound acknowledgement not confirmed',{uncertain:true});
+    return {};
+  };
   sendReply.invalidate=()=>{token=undefined;expires=0;};
   return sendReply;
 }
