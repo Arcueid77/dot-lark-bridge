@@ -1,6 +1,6 @@
 {
   "name": "dot-lark-bridge",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "description": "Owner-controlled Feishu messages and attachments for an existing ChatGPT dot through MCP Events",

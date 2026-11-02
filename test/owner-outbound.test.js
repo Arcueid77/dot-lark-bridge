@@ -5,7 +5,7 @@ import {larkAdapter} from '../src/tunnel-adapter.js';
 import {toolResult} from '@dot-bridge/core/router/common.js';
 import {OwnerOutbox} from '@dot-bridge/core/channels/outbound.js';
 import {Store} from '../src/store.js';
-import {config} from './helpers.js';
+import {config,harness} from './helpers.js';
 
 test('Feishu proactive text uses an independently authorized create route, original owner chat and stable UUID',async()=>{
  const settings={authMode:'tunnel-service',bridgeMode:'tunnel',tunnelServiceOperation:'live',outboundEnabled:true,larkAppId:'fixture-app',larkAppSecret:'fixture-secret',ownerChatId:'fixture-chat',ownerOpenId:'fixture-owner',tenantKey:'fixture-tenant'};
@@ -32,4 +32,15 @@ test('the native Feishu store and closed aggregate adapter share encrypted owner
   assert.throws(()=>larkAdapter.validateToolArguments(name,{...args,recipient:'someone'},true));
   await box.close();
  }finally{store.close();}
+});
+
+test('owner HTTP notifications work without an inbound event subscription and do not fabricate a connected gateway',async t=>{
+ const f=await harness({overrides:{outboundEnabled:true}});t.after(f.close);
+ const bridge=f.app.bridge;let attempts=0;bridge.gatewayConnected=()=>false;
+ bridge.sendLark.sendOwnerMessage=async args=>{args.authorize();attempts++;};
+ const owner={id:f.config.principal,validUntil:f.now()+600000};
+ const checked=await bridge.rpc('tools/call',{name:'check_lark_outbound',arguments:{}},owner);
+ assert.equal(checked.structuredContent.enabled,true);assert.equal(checked.structuredContent.gateway_connected,false);assert.equal(bridge.store.activeSubscription(f.now()),undefined);
+ const queued=await bridge.rpc('tools/call',{name:'send_lark_message',arguments:{conversation:'owner',text:'synthetic notification',idempotency_key:'without-inbound-subscription'}},owner);
+ await bridge.tick();assert.equal(attempts,1);assert.equal(bridge.outbox.call('get_lark_outbound',{outbound_id:queued.structuredContent.outbound_id}).status,'sent');
 });

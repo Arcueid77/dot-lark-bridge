@@ -32,7 +32,9 @@ export class Bridge {
     this.config = config; this.clock = clock; this.send = send; this.store = store ?? new Store(config);
     this.sendLark = createLarkSender(config, send, clock);
     this.outbox=new OwnerOutbox({channel:'lark',db:this.store.db,seal:(v,a)=>this.store.vault.seal(v,a),open:(v,a)=>this.store.vault.open(v,a),enabled:config.outboundEnabled===true,clock,
-      available:()=>this.bindingReady()&&this.gatewayConnected?.()===true,send:args=>this.sendLark.sendOwnerMessage(args)});
+      // The paired HTTP create API does not depend on the inbound socket or an
+      // event subscription. Its real gateway state is reported separately.
+      available:()=>this.bindingReady(),send:args=>this.sendLark.sendOwnerMessage(args)});
     this.interactions=new InteractionState(this);
     this.running = false;
   }
@@ -156,7 +158,11 @@ export class Bridge {
       case 'events/unsubscribe': return this.unsubscribe(params, principal);
       case 'tools/call': {
         object(params, ['name', 'arguments', '_meta'], ['name', 'arguments']);
-        if(isOutboundTool('lark',params.name))return toolResult(this.outbox.call(params.name,params.arguments));
+        if(isOutboundTool('lark',params.name)){
+          const result=this.outbox.call(params.name,params.arguments);
+          if(params.name==='check_lark_outbound')result.gateway_connected=this.gatewayConnected?.()===true;
+          return toolResult(result);
+        }
         if (params.name === 'check_lark_setup' && tunnelLive(this.config)) {
           object(params.arguments, ['callback_url']);
           const result=callbackPreflight(this.config, this.bindingReady(), params.arguments.callback_url, this.callbackTransportStatus());
