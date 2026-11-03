@@ -129,3 +129,8 @@ Node 24.15–24.x，OpenSSL；媒体转换需受保护的 Linux `/usr/bin/ffmpeg
 | `MAX_DELIVERY_ATTEMPTS` | 5 | 有界尝试数，不允许重发 uncertain 回复 |
 
 飞书另支持 `TEXT_RETENTION_SECONDS`，默认 604800 秒，不得短于回复期限。飞书的回复期限是桥的本地策略，不是声称平台存在对应被动回复窗口。
+
+
+## 本人私聊管理命令
+
+`/help`、`/status`、`/queue`、`/subscription`、`/cancel [编号]` 使用共享 core 的加密持久控制队列。取消尚未发送的桥回复，保留发送中及结果不明状态。标准模式可显式设置 `DOT_BRIDGE_OWNER_MANAGEMENT=1`，让管理连接在 dot 订阅缺失时保持可用；普通消息收到订阅状态提示。原 dot 的停止、重置和审批在原平台处理。更多配置见[统一交互说明](https://github.com/Arcueid77/dot-bridge/blob/main/docs/new-channels.md#聊天内维护)。

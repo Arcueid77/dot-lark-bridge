@@ -1,3 +1,5 @@
+import {legacyExperienceStatus} from '@dot-bridge/core/channels/legacy-experience-status.js';
+import {LegacyManagement} from '@dot-bridge/core/channels/legacy-management.js';
 import { ownerScopedProxy, assertCallbackMode } from './callback-mode.js';
 import { transcribeAudio } from '@dot-bridge/core/audio';
 import { larkSetupTool, callbackPreflight } from './setup-preflight.js';
@@ -36,6 +38,10 @@ export class Bridge {
       // event subscription. Its real gateway state is reported separately.
       available:()=>this.bindingReady(),send:args=>this.sendLark.sendOwnerMessage(args)});
     this.interactions=new InteractionState(this);
+    this.management=new LegacyManagement({store:this.store,channel:'飞书 / Lark',enabled:config.authMode==='tunnel-service'&&!tunnelReadiness(config),clock,receiveWithoutSubscription:config.ownerManagementConnection===true,
+      ownerPrivate:message=>message.owner===this.config.ownerOpenId&&(message.chat_id??message.chatId)===this.config.ownerChatId&&(message.chat_type??message.chatType??'p2p')==='p2p',
+      status:()=>this.runtimeStatus(),sendReply:(message,text,authorize)=>this.sendLark({...message,tenant_key:message.tenant_key??message.tenantKey,chat_id:message.chat_id??message.chatId,chat_type:'p2p',reply_in_thread:false},text,{authorize})});
+    this.store.management=this.management;
     this.running = false;
   }
   bindingReady() {
@@ -44,8 +50,8 @@ export class Bridge {
   }
   callbackTransportStatus() { return callbackTransportStatus(this.send); }
   runtimeStatus() {
-    return inspectLegacyRuntimeStatus(this.store,{principal:this.config.principal,now:this.clock(),callbackHosts:this.config.callbackHosts,bindingReady:this.bindingReady(),
-      gatewayConnected:this.gatewayConnected?.(),wrongSettingPresent:this.config.callbackWrongSettingPresent,callbackAllowed:sub=>this.callbackAuthorized(sub)});
+    return {...inspectLegacyRuntimeStatus(this.store,{principal:this.config.principal,now:this.clock(),callbackHosts:this.config.callbackHosts,bindingReady:this.bindingReady(),
+      gatewayConnected:this.gatewayConnected?.(),wrongSettingPresent:this.config.callbackWrongSettingPresent,callbackAllowed:sub=>this.callbackAuthorized(sub)}),experience_capabilities:legacyExperienceStatus('lark',this.config,this.management)};
   }
   ready() { return this.bindingReady() && (!!this.config.callbackHosts.length || ownerScopedProxy(this.config)) && (!tunnelLive(this.config) || this.callbackTransportStatus().ready); }
   callbackAuthorized(subscription) {
@@ -231,6 +237,7 @@ export class Bridge {
     let job;
     try {
       const now = this.clock();
+      if(await this.management.tick())return true;
       await this.outbox.tick();
       job = this.store.claim(now);
       if (!job) return false;

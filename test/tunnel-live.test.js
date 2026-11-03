@@ -140,3 +140,11 @@ test('queued reply cannot send or expose text after persisted callback policy re
  await bridge.tick();assert.equal(sends,0);assert.equal(bridge.store.replyStatus('message').status,'cancelled');
  }finally{bridge.store.close();}
 });
+
+
+test('explicit owner management opt-in keeps the official gateway available without a dot subscription',async t=>{
+ const {env}=fixture(t),c=readConfig({...env,DOT_BRIDGE_OWNER_MANAGEMENT:'1'});let starts=0,closes=0;
+ class Dispatcher{register(){return this;}async invoke(){}}class WS{async start(){starts++;}close(){closes++;}}
+ const sdk={EventDispatcher:Dispatcher,WSClient:WS,LoggerLevel:{warn:1},Domain:{Feishu:'feishu'}},store={activeSubscription:()=>undefined,ingest(){},management:{enabled:true}};
+ const runtime=createLarkRuntime(c,store,Date.now,{sdk,send:makePublicRequester({proxyEnv:{},request(){throw Error('synthetic no network');}})});await runtime.start();assert.equal(starts,1);store.management.enabled=false;await runtime.syncSubscription();assert.equal(closes,1);runtime.close();
+});

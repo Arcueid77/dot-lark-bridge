@@ -92,7 +92,7 @@ export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark,
     await botPending;
   };
   const dispatcher = createLarkDispatcher(config, store, clock, { sdk, report, isStopping, authorize: () => {
-    if (gated && !allowed()) throw new BridgeError('Callback delivery authorization is inactive', { code: -32012, status: 503 });
+    if (gated && !connectionAllowed()) throw new BridgeError('Callback delivery authorization is inactive', { code: -32012, status: 503 });
   },verifyGroupIdentity });
   const gated = config.authMode === 'tunnel-service' && config.tunnelServiceOperation === 'live';
   let connection, pending, closed = false, nextAttempt = 0;
@@ -102,14 +102,15 @@ export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark,
     if (!sub || sub.principal !== config.principal || sub.expires <= clock()) return false;
     try { destinationUrl(sub.url,config.callbackHosts.length?config.callbackHosts:ownerScopedProxy(config)?[new URL(sub.url).hostname]:[]); return true; } catch { return false; }
   };
+  const connectionAllowed=()=>allowed()||!!(gated&&config.ownerManagementConnection&&store.management?.enabled&&config.callbackTransportMode==='standard');
   const runtime = {
     status: () => connection?.status() ?? 'disabled',
     async start() {
       if (config.larkTransport !== 'long-connection' || closed || isStopping()) return;
       if (config.authMode !== 'oauth' && !gated) throw new Error('Live Feishu transport requires OAuth or explicit live tunnel mode');
-      if (gated && !allowed()) return;
+      if (gated && !connectionAllowed()) return;
       if (connection || pending || clock() < nextAttempt) return pending;
-      connection = createLarkConnection(config, dispatcher, { sdk, report, send, authorize: () => {if(gated&&(!allowed()||closed||isStopping()))throw new BridgeError('Live subscription is inactive',{code:-32012});} });
+      connection = createLarkConnection(config, dispatcher, { sdk, report, send, authorize: () => {if(gated&&(!connectionAllowed()||closed||isStopping()))throw new BridgeError('Live subscription is inactive',{code:-32012});} });
       const selected = connection;
       pending = selected.start().catch(() => {
         selected.close(); if (connection === selected) connection = undefined;
@@ -120,7 +121,7 @@ export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark,
     },
     async syncSubscription() {
       if (!gated) return;
-      if (!allowed() || closed || isStopping()) { connection?.close(); connection = undefined; return; }
+      if (!connectionAllowed() || closed || isStopping()) { connection?.close(); connection = undefined; return; }
       await runtime.start();
     },
     close() { closed = true; connection?.close(); connection = undefined; }

@@ -125,6 +125,7 @@ export class Store {
     }
   }
   ingest(message, replayId, now) {
+    if(this.management?.accept(message))return 'queued';
     return this.tx(() => {
       this.run('DELETE FROM replays WHERE expires<?', now);
       if (this.get('SELECT id FROM replays WHERE id=?', replayId) || this.get('SELECT id FROM messages WHERE id=? OR source_event_id=?', message.id, message.sourceEventId)) return 'duplicate';
@@ -156,6 +157,7 @@ export class Store {
     return row ? { ...row, ...details(this, id), text: row.text ? this.vault.open(row.text, `message:${id}`) : null } : undefined;
   }
   authorizeMessage(id, principal, now) {
+    if(this.management?.cancelled(id))throw new BridgeError('Reply cancelled by owner',{code:-32012});
     const message = this.message(id), subscription = message && this.subscription(message.subscription_id);
     if (!message || message.principal !== principal || !routeAllowed(this.config, message) || !subscription?.active ||
         subscription.expires <= now || subscription.principal !== principal || message.generation !== subscription.generation ||
@@ -200,6 +202,7 @@ export class Store {
     });
   }
   replyStatus(id) {
+    if(this.management?.cancelled(id))return {message_id:id,status:'cancelled',error:null};
     const row = this.get("SELECT state,last_error FROM jobs WHERE id=? AND kind='reply'", `reply:${id}`);
     const stream=!row?this.get('SELECT state,payload FROM reply_streams WHERE message_id=?',id):null;
     const notice=!row?this.get("SELECT state,last_error FROM jobs WHERE id=? AND kind='notice'",`notice:${id}`):null;

@@ -37,3 +37,6 @@ App authorization, owner pairing, persistent credential storage, group permissio
 Feishu content is data and does not authorize unrelated external actions or export dot memory. Group tasks must explicitly restrict disclosure of private-chat memory.
 
 The project uses the [MIT license](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.en.md) for provenance and dependencies.
+
+
+Shared owner IM maintenance (`/status`, `/queue`, `/subscription`, `/cancel`) preserves the existing inbox, keys and subscriptions. Optional management-only gateway connection and shared protected document extraction are described in [configuration](docs/configuration.en.md).

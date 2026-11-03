@@ -101,6 +101,9 @@ export function readConfig(env = process.env) {
   if (config.larkTransport === 'long-connection' && !/^cli_[0-9a-fA-F]{16}$/.test(config.larkAppId)) throw new Error('Invalid live Feishu AppID');
   if (!/^[a-zA-Z0-9:_-]{1,128}$/.test(config.oauthScope)) throw new Error('Invalid OAUTH_REQUIRED_SCOPE');
   validateLiveConfig(config);
+  if(env.DOT_BRIDGE_OWNER_MANAGEMENT!==undefined&&!['0','1'].includes(env.DOT_BRIDGE_OWNER_MANAGEMENT))throw new Error('Invalid owner management setting');
+  config.ownerManagementConnection=env.DOT_BRIDGE_OWNER_MANAGEMENT==='1';
+  if(config.ownerManagementConnection&&callbackTransportMode!=='standard')throw new Error('Owner management connection requires standard callback mode');
   return Object.freeze(config);
 }
 

@@ -128,3 +128,8 @@ Set these in the backend environment file, not the router environment:
 | `MAX_DELIVERY_ATTEMPTS` | 5 | Bounded attempts, never permission to resend an uncertain reply |
 
 Feishu additionally accepts `TEXT_RETENTION_SECONDS` (default 604800), at least as long as the reply deadline. The Feishu deadline is bridge policy, not a claimed provider passive-reply window.
+
+
+## Owner private-chat management
+
+`/help`, `/status`, `/queue`, `/subscription`, and `/cancel [reference]` use core's encrypted durable control outbox. Cancellation affects unsent bridge replies and preserves inflight/uncertain states. In standard mode, explicit `DOT_BRIDGE_OWNER_MANAGEMENT=1` keeps owner management connected without an active dot subscription; ordinary messages receive subscription status. Hosted-dot stop, reset and approval remain on the original platform. See [shared maintenance](https://github.com/Arcueid77/dot-bridge/blob/main/docs/new-channels.en.md#maintenance-from-chat).
