@@ -5,6 +5,8 @@ import {validateInteractionPolicy} from '../src/interaction-policy.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {createVerifiedLarkDispatcher} from '../src/lark-runtime.js';
 import {privateMkdtempSync} from '@dot-bridge/core/platform/test-fixtures.js';
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=','base64');
 // Locally generated 20 ms of silence, encoded as an actual Ogg/Opus file.
@@ -32,6 +34,42 @@ async function setup(t,groups=[],options={}){
   const tool=(name,args)=>f.postMcp('tools/call',{name,arguments:args});
   return{...f,calls,receive,tool};
 }
+
+test('native choice cards accept the verified owner callback once and enqueue one new input',async t=>{
+  const f=await setup(t,[],{policy:{reactions:false}});
+  await f.subscribe();await f.receive('choice-source');await f.app.bridge.tick();
+  const args={message_id:'choice-source',text:'选择格式',choices:[{id:'pdf',label:'PDF'},{id:'txt',label:'文本'}],idempotency_key:'one-format'};
+  assert.equal((await f.tool('reply_lark_choices',args)).status,200);await f.app.bridge.tick();
+  assert.equal(f.calls.replies.length,1);
+  const card=JSON.parse(f.calls.cards[0].data);
+  assert.equal(card.schema,'2.0');
+  const token=f.app.bridge.choices.create({id:'choice-source'},args).choices[0].token;
+  assert.ok(JSON.stringify(card).includes(token));
+  const dispatcher=createVerifiedLarkDispatcher(f.config,()=>assert.fail('message handler'),{onCardAction:data=>f.app.bridge.handleCardAction(data)});
+  const envelope={schema:'2.0',header:{app_id:f.config.larkAppId,tenant_key:f.config.tenantKey,event_type:'card.action.trigger',event_id:'choice-event'},event:{operator:{open_id:f.config.ownerOpenId,tenant_key:f.config.tenantKey},action:{value:{dotbridge_choice:token}},context:{open_message_id:'out-1',open_chat_id:f.config.ownerChatId},host:'im_message'}};
+  assert.equal((await dispatcher.invoke({...envelope,header:{...envelope.header,app_id:'wrong-app'}},{needCheck:false})).outcome,'rejected');
+  assert.equal((await dispatcher.invoke({...envelope,event:{...envelope.event,operator:{open_id:'someone'}}},{needCheck:false})).toast.type,'error');
+  assert.equal((await dispatcher.invoke(envelope,{needCheck:false})).toast.type,'success');
+  assert.equal((await dispatcher.invoke(envelope,{needCheck:false})).toast.type,'success');
+  await f.app.bridge.tick();await f.app.bridge.tick();
+  assert.equal(f.app.bridge.store.get("SELECT count(*) AS n FROM messages WHERE id='out-1'").n,1);
+  assert.equal(f.deliveries.length,2);
+  assert.equal((await f.tool('get_lark_choice_result',{message_id:'choice-source'})).body.result.structuredContent.selection.id,'pdf');
+});
+
+test('generated files pass the native upload tools and existing one-reply media queue',async t=>{
+  const f=await setup(t,[],{policy:{reactions:false}});
+  await f.subscribe();await f.receive('generated-file');await f.app.bridge.tick();
+  const bytes=Buffer.alloc(200000,120);
+  const begin=await f.tool('begin_lark_attachment_upload',{message_id:'generated-file',type:'file',name:'report.txt',mime_type:'application/octet-stream',size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),idempotency_key:'generated-report'});
+  assert.equal(begin.status,200);const upload_id=begin.body.result.structuredContent.upload_id;
+  assert.equal((await f.tool('append_lark_attachment_upload',{upload_id,offset:0,data:bytes.toString('base64')})).status,200);
+  assert.equal((await f.tool('finish_lark_attachment_upload',{upload_id})).body.result.structuredContent.complete,true);
+  const args={message_id:'generated-file',upload_id,idempotency_key:'deliver-report'};
+  assert.equal((await f.tool('reply_lark_uploaded_attachment',args)).status,200);await f.app.bridge.tick();
+  assert.equal((await f.tool('reply_lark_uploaded_attachment',args)).body.result.structuredContent.status,'sent');
+  await f.app.bridge.tick();assert.equal(f.calls.uploads.length,1);assert.equal(f.calls.replies.length,1);
+});
 test('group configuration supports owner, allowlist and all with independent mention/keyword/all-message triggers',()=>{
   for(const members of ['owner','all','allowlist'])for(const auto_reply of ['off','all','keywords']){
     const p=policy([{chat_id:'group',members,auto_reply,...(members==='allowlist'?{allow_from:['member']}:{}) ,...(auto_reply==='keywords'?{keywords:['帮助']}:{})}]);assert.equal(p.groups[0].members,members);assert.equal(p.groups[0].autoReply,auto_reply);assert.ok(Object.isFrozen(p.groups[0]));

@@ -18,6 +18,8 @@ import {readableFile} from './media-process.js';
 import {inspectLegacyRuntimeStatus,legacySubscriptionDiagnostics} from '@dot-bridge/core/channels/legacy-status.js';
 import {trackSubscriptionAttempt} from '@dot-bridge/core/channels/status.js';
 import {OwnerOutbox,isOutboundTool,OUTBOUND_INSTRUCTIONS} from '@dot-bridge/core/channels/outbound.js';
+import {SourceUploads,isUploadTool} from '@dot-bridge/core/channels/uploads.js';
+import {SourceChoices,isChoiceTool,validateChoiceArguments} from '@dot-bridge/core/channels/choices.js';
 
 export const EVENT_NAME = 'lark.message.created';
 const argsSchema = larkEventArguments;
@@ -33,6 +35,10 @@ export class Bridge {
     assertCallbackMode(config);
     this.config = config; this.clock = clock; this.send = send; this.store = store ?? new Store(config);
     this.sendLark = createLarkSender(config, send, clock);
+    this.choices=new SourceChoices({db:this.store.db,seal:(v,a)=>this.store.vault.seal(v,a),open:(v,a)=>this.store.vault.open(v,a),clock,
+      authorize:id=>this.authorizeStoredMessage(id,this.config.principal,this.clock())});
+    this.uploads=new SourceUploads({channel:'lark',db:this.store.db,seal:(v,a)=>this.store.vault.seal(v,a),open:(v,a)=>this.store.vault.open(v,a),clock,
+      authorize:id=>this.authorizeStoredMessage(id,this.config.principal,this.clock())});
     this.outbox=new OwnerOutbox({channel:'lark',db:this.store.db,seal:(v,a)=>this.store.vault.seal(v,a),open:(v,a)=>this.store.vault.open(v,a),enabled:config.outboundEnabled===true,clock,
       // The paired HTTP create API does not depend on the inbound socket or an
       // event subscription. Its real gateway state is reported separately.
@@ -43,6 +49,20 @@ export class Bridge {
       status:()=>this.runtimeStatus(),sendReply:(message,text,authorize)=>this.sendLark({...message,tenant_key:message.tenant_key??message.tenantKey,chat_id:message.chat_id??message.chatId,chat_type:'p2p',reply_in_thread:false},text,{authorize})});
     this.store.management=this.management;
     this.running = false;
+  }
+  handleCardAction(data) {
+    const operator=data?.operator,context=data?.context;
+    const token=data?.action?.value?.dotbridge_choice??data?.action?.option??data?.action?.options;
+    if(typeof token!=='string'||typeof operator?.open_id!=='string'||operator.tenant_key!==undefined&&operator.tenant_key!==this.config.tenantKey||typeof context?.open_message_id!=='string'||typeof context?.open_chat_id!=='string'||data.host!==undefined&&data.host!=='im_message')return {toast:{type:'error',content:'选项不可用'}};
+    const result=this.choices.select({token,senderId:operator.open_id,conversationId:context.open_chat_id,message:{id:context.open_message_id,senderId:operator.open_id,conversationId:context.open_chat_id,botMentioned:true,replyContext:{},attachments:[]}});
+    return {toast:{type:result.accepted?'success':'error',content:result.accepted?'已选择 '+result.label:'选项已过期或已处理'}};
+  }
+  async dispatchChoices() {
+    await this.choices.dispatch(raw=>{
+      const source=this.authorizeStoredMessage(raw.replyContext.choiceSourceId,this.config.principal,this.clock());
+      const message={id:raw.id,sourceEventId:'choice:'+hash(raw.replyContext.choiceSourceId),owner:source.owner,tenantKey:source.tenant_key,chatId:source.chat_id,chatType:source.chat_type,replyInThread:source.reply_in_thread,botMentioned:true,text:raw.text,attachments:[],timestamp:new Date(raw.timestamp).toISOString(),expires:raw.timestamp+this.config.replyTtlMs};
+      return this.store.ingest(message,'choice:'+hash(source.id),this.clock());
+    },action=>this.outbox.call(`${action.action}_lark_scheduled_message`,{outbound_id:action.outbound_id,expected_revision:action.expected_revision}));
   }
   bindingReady() {
     const c = this.config;
@@ -164,6 +184,22 @@ export class Bridge {
       case 'events/unsubscribe': return this.unsubscribe(params, principal);
       case 'tools/call': {
         object(params, ['name', 'arguments', '_meta'], ['name', 'arguments']);
+        if(isChoiceTool('lark',params.name)){
+          const args=validateChoiceArguments('lark',params.name,params.arguments),source=this.authorizeStoredMessage(args.message_id,principal.id,this.clock());
+          if(params.name==='get_lark_choice_result')return toolResult(this.choices.result(source.id));
+          if(!this.config.interaction?.enabled)throw new BridgeError('Interactive replies require the protected interaction policy');
+          for(const choice of args.choices){if(choice.command&&(source.chat_type!=='p2p'||source.owner!==this.config.ownerOpenId))throw new BridgeError('Commands require the paired owner private chat',{code:-32012});if(choice.reminder){if(source.chat_type!=='p2p'||source.owner!==this.config.ownerOpenId)throw new BridgeError('Reminder controls require the paired owner private chat',{code:-32012});const current=this.outbox.call('get_lark_outbound',{outbound_id:choice.reminder.outbound_id});if(current.revision!==choice.reminder.expected_revision)throw new BridgeError('Reminder changed; refresh before offering controls',{code:-32013});}}
+          const plan=this.choices.create({id:source.id,senderId:source.owner,conversationId:source.chat_id,chatType:source.chat_type,expires:source.expires},args);
+          const result=this.store.queueReply(source.id,plan.text,principal.id,this.clock(),plan);
+          return toolResult({message_id:result.message_id,status:result.status});
+        }
+        if(isUploadTool('lark',params.name))return toolResult(this.uploads.call(params.name,params.arguments,{
+          queue:(id,media)=>{
+            if(!this.config.interaction?.media)throw new BridgeError('Media messages are not enabled');
+            validateLarkArguments('reply_lark_media',{message_id:id,type:media.type,name:media.name,mime_type:media.mime_type,data:media.data});
+            const value=this.store.queueReply(id,'[媒体回复]',principal.id,this.clock(),{type:media.type,name:media.name,mimeType:media.mime_type,data:media.data});
+            return {message_id:value.message_id,status:value.status};
+          },getReplyStatus:id=>{const value=this.store.replyStatus(id);return {message_id:value.message_id,status:value.status};}}));
         if(isOutboundTool('lark',params.name)){
           const result=this.outbox.call(params.name,params.arguments);
           if(params.name==='check_lark_outbound')result.gateway_connected=this.gatewayConnected?.()===true;
@@ -183,8 +219,13 @@ export class Bridge {
           return toolResult({ message_id: message.id, text: message.text, reply_deadline: new Date(message.expires).toISOString(), reply: this.store.replyStatus(message.id),conversation:{kind:message.chat_type,key:conversationReference(this.config,message)},attachments:message.attachments.map((item,index)=>({index,type:item.type,name:item.name})),quoted_message_id:message.quote_id });
         }
         if (params.name === 'reply_to_lark') {
-          object(params.arguments, ['message_id', 'text'], ['message_id', 'text']); string(params.arguments.message_id, 256); plainText(params.arguments.text,this.config.interaction?.enabled?MAX_REPLY_TEXT:2000);
+          object(params.arguments, ['message_id', 'text','delivery_mode'], ['message_id', 'text']); string(params.arguments.message_id, 256); plainText(params.arguments.text,this.config.interaction?.enabled?MAX_REPLY_TEXT:2000);
+          if(params.arguments.delivery_mode!==undefined&&!['auto','file'].includes(params.arguments.delivery_mode))throw new BridgeError('Invalid reply delivery mode');
           this.authorizeStoredMessage(params.arguments.message_id, principal.id, this.clock());
+          if(params.arguments.delivery_mode==='file'){
+            if(!this.config.interaction?.media)throw new BridgeError('File delivery requires media support');
+            return toolResult(this.store.queueReply(params.arguments.message_id,params.arguments.text,principal.id,this.clock(),{type:'file',name:'answer.md',mimeType:'text/markdown',data:Buffer.from(params.arguments.text,'utf8').toString('base64')}));
+          }
           return toolResult(this.store.queueReply(params.arguments.message_id, params.arguments.text, principal.id, this.clock()));
         }
         if(params.name==='get_lark_context'){
@@ -237,6 +278,8 @@ export class Bridge {
     let job;
     try {
       const now = this.clock();
+      this.uploads.purge();
+      await this.dispatchChoices();
       if(await this.management.tick())return true;
       await this.outbox.tick();
       job = this.store.claim(now);
@@ -288,7 +331,11 @@ export class Bridge {
           return true;
         }
         const plan=this.store.get('SELECT payload FROM reply_details WHERE message_id=?',message.id);
-        if(plan?.payload)await this.interactions.runMedia(job,this.store.vault.open(plan.payload,`reply-details:${message.id}`));
+        if(plan?.payload){
+          const value=this.store.vault.open(plan.payload,`reply-details:${message.id}`);
+          if(value.kind==='choices')await this.interactions.runChoices(job,value);
+          else await this.interactions.runMedia(job,value);
+        }
         else if(this.interactions.stream(message.id)){
           await this.interactions.runStream(job);
           const current=this.interactions.stream(message.id);

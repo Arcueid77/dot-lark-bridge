@@ -1,3 +1,5 @@
+import {BridgeError as CoreBridgeError} from '@dot-bridge/core/router/common.js';
+import {UPLOAD_RPC_BYTES} from '@dot-bridge/core/channels/uploads.js';
 import { assertLiveStorage } from './live-storage.js';
 import { tunnelReadiness, tunnelLive, assertTunnelServiceConfig } from './tunnel-service-auth.js';
 import http from 'node:http';
@@ -16,7 +18,7 @@ function json(res, status, value, headers = {}) {
   res.end(JSON.stringify(value));
 }
 async function readBody(req) {
-  const limit=req.headers['mcp-name']==='reply_lark_media'?MEDIA_RPC_LIMIT:['reply_to_lark','append_lark_reply'].includes(req.headers['mcp-name'])?262144:32768;
+  const limit=req.headers['mcp-name']==='append_lark_attachment_upload'?UPLOAD_RPC_BYTES:req.headers['mcp-name']==='reply_lark_media'?MEDIA_RPC_LIMIT:['reply_to_lark','append_lark_reply'].includes(req.headers['mcp-name'])?262144:32768;
   if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? '')) throw new BridgeError('Expected application/json', { status: 415 });
   if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') throw new BridgeError('Compressed bodies are unsupported', { status: 415 });
   if (Number(req.headers['content-length']) > limit) throw new BridgeError('Request too large', { status: 413 });
@@ -78,7 +80,7 @@ export function createApp(config, { clock = Date.now, send = makePublicRequester
   const authenticate = createAuthenticator(config, send, clock);
   const bridge = new Bridge(config, { clock, send });
   let interval, lastTick = Promise.resolve(), stopping = false, lastPrune = 0;
-  const larkRuntime = createLarkRuntime(config, bridge.store, clock, { sdk, report, send, isStopping: () => stopping });
+  const larkRuntime = createLarkRuntime(config, bridge.store, clock, { sdk, report, send, isStopping: () => stopping,onCardAction:data=>bridge.handleCardAction(data) });
   bridge.gatewayConnected=()=>{const state=larkRuntime.status();return ['disabled','connecting','reconnecting','connected','failed','idle'].includes(state)?state==='connected':undefined;};
   const readiness = () => {
     const configured = bridge.ready(), subscribed = !!bridge.store.activeSubscription(clock()), connected = larkRuntime.status() === 'connected';
@@ -122,7 +124,7 @@ export function createApp(config, { clock = Date.now, send = makePublicRequester
       }
       return json(res, 404, { error: 'Not found' });
     } catch (error) {
-      const safe = error instanceof BridgeError ? error : new BridgeError('Internal bridge error', { status: 500, code: -32603 });
+      const safe = error instanceof BridgeError ? error : error instanceof CoreBridgeError ? new BridgeError(error.message,{status:error.status,code:error.code,data:error.data}) : new BridgeError('Internal bridge error', { status: 500, code: -32603 });
       const extra = safe.status === 401 && isMcp ? { 'WWW-Authenticate': config.authMode === 'oauth' ?
         `Bearer resource_metadata="${config.publicOrigin}/.well-known/oauth-protected-resource/mcp", scope="${config.oauthScope}"` : config.authMode === 'tunnel-service' ? 'DotBridgeService' : 'Bearer' } : {};
       if (!res.headersSent && !res.destroyed) json(res, safe.status, isMcp ? { jsonrpc: '2.0', id: rpcId ?? null,

@@ -13,7 +13,7 @@ export function safeSdkLogger(report = () => {}) {
   return { trace() {}, debug() {}, info() {}, warn() { report('lark_sdk_warning'); }, error() { report('lark_sdk_error'); } };
 }
 
-export function createLarkDispatcher(config, store, clock = Date.now, { sdk = lark, report = () => {}, isStopping = () => false, authorize = () => {},verifyGroupIdentity } = {}) {
+export function createLarkDispatcher(config, store, clock = Date.now, { sdk = lark, report = () => {}, isStopping = () => false, authorize = () => {},verifyGroupIdentity,onCardAction } = {}) {
   return createVerifiedLarkDispatcher(config, async data => {
       if (isStopping()) throw new BridgeError('Bridge is stopping', { status: 503 });
       if (!config.ownerOpenId || !config.ownerChatId || !config.principal || config.authMode === 'deny') {
@@ -37,12 +37,12 @@ export function createLarkDispatcher(config, store, clock = Date.now, { sdk = la
       authorize();
       const outcome = store.ingest(message, `lark:${data.event_id}`, clock());
       return { outcome };
-    }, { sdk, report });
+    }, { sdk, report,onCardAction });
 }
 
-export function createVerifiedLarkDispatcher(config, handler, { sdk = lark, report = () => {} } = {}) {
+export function createVerifiedLarkDispatcher(config, handler, { sdk = lark, report = () => {},onCardAction } = {}) {
   const dispatcher = new sdk.EventDispatcher({ logger: safeSdkLogger(report), loggerLevel: sdk.LoggerLevel.warn })
-    .register({ [INBOUND_EVENT]: handler });
+    .register({ [INBOUND_EVENT]: handler,...(onCardAction?{'card.action.trigger':onCardAction}:{}) });
   const invoke = dispatcher.invoke.bind(dispatcher);
   dispatcher.invoke = async (envelope, params) => {
     if (!config.tenantKey || !config.larkAppId) {
@@ -55,9 +55,13 @@ export function createVerifiedLarkDispatcher(config, handler, { sdk = lark, repo
         ['app_id', 'tenant_key', 'event_id', 'event_type', 'create_time', 'schema'].some(key => Object.hasOwn(envelope.event, key))) {
       report('inbound_rejected'); return { outcome: 'rejected' };
     }
-    if (envelope.header.event_type !== INBOUND_EVENT) return { outcome: 'ignored' };
+    if (![INBOUND_EVENT,'card.action.trigger'].includes(envelope.header.event_type)) return { outcome: 'ignored' };
     if (envelope.header.app_id !== config.larkAppId || envelope.header.tenant_key !== config.tenantKey) {
       report('inbound_rejected'); return { outcome: 'rejected' };
+    }
+    if(envelope.header.event_type==='card.action.trigger'){
+      if(typeof onCardAction!=='function')return {outcome:'ignored'};
+      return onCardAction({...envelope.event,context:envelope.event.context??envelope.context,host:envelope.event.host??envelope.host});
     }
     return invoke(envelope, params);
   };
@@ -83,7 +87,7 @@ export function createFeishuAgent(lookup = dnsLookup, { proxyEnv = process.env, 
   });
 }
 
-export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark, report = () => {}, send, isStopping = () => false } = {}) {
+export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark, report = () => {}, send, isStopping = () => false,onCardAction } = {}) {
   const provider=send?createInteractionsApi(config,send,createLarkSender(config,send,clock),clock):null;
   let verifiedBot=false,botPending;
   const verifyGroupIdentity=async()=>{
@@ -93,7 +97,7 @@ export function createLarkRuntime(config, store, clock = Date.now, { sdk = lark,
   };
   const dispatcher = createLarkDispatcher(config, store, clock, { sdk, report, isStopping, authorize: () => {
     if (gated && !connectionAllowed()) throw new BridgeError('Callback delivery authorization is inactive', { code: -32012, status: 503 });
-  },verifyGroupIdentity });
+  },verifyGroupIdentity,onCardAction });
   const gated = config.authMode === 'tunnel-service' && config.tunnelServiceOperation === 'live';
   let connection, pending, closed = false, nextAttempt = 0;
   const allowed = () => {

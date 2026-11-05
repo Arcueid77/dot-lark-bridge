@@ -79,6 +79,28 @@ export class InteractionState {
       return stream.outboundId;
     }catch(error){if(error.uncertain)this.updateStream(message.id,row=>{if(row.state!=='complete')row.state='uncertain';});throw error;}
   }
+  async runChoices(job,plan){
+    this.bridge.authorizeJob(job);
+    const message=this.store.message(job.message_id),authorize=()=>this.bridge.authorizeJob(job),stream=this.stream(message.id);
+    if(stream&&STREAM_TERMINAL.has(stream.state))throw new BridgeError('Choice reply cannot replace a terminal card',{uncertain:stream.state==='uncertain'});
+    let outboundId;
+    if(stream?.cardId&&stream.outboundId){
+      await this.api.updateChoiceCard(stream.cardId,plan,this.nextCardSequence(message.id),authorize);
+      outboundId=stream.outboundId;
+      this.updateStream(message.id,row=>{row.text=plan.text;row.final=true;row.state='complete';});
+    }else{
+      let cardId=plan.cardId;
+      if(!cardId){
+        cardId=await this.api.createChoiceCard(plan,authorize);
+        this.store.run('UPDATE reply_details SET payload=? WHERE message_id=?',this.store.vault.seal({...plan,cardId},`reply-details:${message.id}`),message.id);
+      }
+      outboundId=await this.api.replyCard(message,cardId,authorize);
+      if(stream)this.updateStream(message.id,row=>{row.cardId=cardId;row.outboundId=outboundId;row.text=plan.text;row.final=true;row.state='complete';});
+    }
+    this.bridge.choices.bindPrompt(message.id,outboundId);
+    this.store.recordReplyAck(job,outboundId);
+    return outboundId;
+  }
   async runMedia(job,plan){
     this.bridge.authorizeJob(job);const message=this.store.message(job.message_id),authorize=()=>this.bridge.authorizeJob(job);
     const priorStream=this.stream(message.id);

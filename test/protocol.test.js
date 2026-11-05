@@ -21,7 +21,7 @@ test('MCP 2.0 discovery, metadata, tool annotations, complete results and unsupp
   assert.deepEqual(discover.body.result.capabilities.events, {});
   assert.equal(discover.body.result.cacheScope, 'private');
   const tools = (await f.postMcp('tools/list')).body.result.tools;
-  assert.deepEqual(tools.map(tool => tool.name), ['get_lark_message', 'reply_to_lark','get_lark_context','get_lark_attachment','reply_lark_attachment','reply_lark_media','begin_lark_reply','append_lark_reply','check_lark_outbound','send_lark_message','schedule_lark_message','get_lark_outbound','list_lark_scheduled_messages','update_lark_scheduled_message','cancel_lark_scheduled_message']);
+  assert.deepEqual(tools.map(tool => tool.name), ['get_lark_message', 'reply_to_lark','get_lark_context','get_lark_attachment','reply_lark_attachment','reply_lark_media','begin_lark_reply','append_lark_reply','check_lark_outbound','send_lark_message','schedule_lark_message','get_lark_outbound','list_lark_scheduled_messages','update_lark_scheduled_message','pause_lark_scheduled_message','resume_lark_scheduled_message','get_lark_reminder_history','cancel_lark_scheduled_message','begin_lark_attachment_upload','append_lark_attachment_upload','finish_lark_attachment_upload','reply_lark_uploaded_attachment','reply_lark_choices','get_lark_choice_result']);
   assert.equal(tools[1].annotations.readOnlyHint, false); assert.equal(tools[1].annotations.idempotentHint, true);
   assert.equal(tools[1].inputSchema.additionalProperties, false);
   const events = (await f.postMcp('events/list')).body.result.events;

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { BridgeError, hash, string } from './common.js';
 import { FEISHU_ORIGIN, replyUuid } from './lark.js';
-import { cardDocument } from './reply-renderer.js';
+import { cardDocument,choiceCardDocument } from './reply-renderer.js';
 import { MAX_ATTACHMENT_BYTES } from './interaction-policy.js';
 import {opusAudio} from './media-process.js';
 import {parseMessageContent} from './message-content.js';
@@ -50,6 +50,8 @@ export function createInteractionsApi(config, send, sender, clock = Date.now) {
       throw new BridgeError('Reaction listing limit reached');
     },
     async createCard(text,state,authorize){const data=await request('cardkit/v1/cards',{type:'card_json',data:JSON.stringify(cardDocument(text,state))},{authorize});return string(data.card_id,256);},
+    async createChoiceCard(plan,authorize){const data=await request('cardkit/v1/cards',{type:'card_json',data:JSON.stringify(choiceCardDocument(plan))},{authorize});return string(data.card_id,256);},
+    async updateChoiceCard(cardId,plan,sequence,authorize){await request(`cardkit/v1/cards/${segment(cardId)}`,{card:{type:'card_json',data:JSON.stringify(choiceCardDocument(plan))},sequence,uuid:hash(`${cardId}:${sequence}`).slice(0,32)},{authorize,method:'PUT'});},
     async updateCard(cardId,text,state,sequence,authorize){await request(`cardkit/v1/cards/${segment(cardId)}`,{card:{type:'card_json',data:JSON.stringify(cardDocument(text,state))},sequence,uuid:hash(`${cardId}:${sequence}`).slice(0,32)},{authorize,method:'PUT'});},
     async replyCard(message,cardId,authorize){const data=await request(`im/v1/messages/${segment(message.id)}/reply`,{msg_type:'interactive',content:JSON.stringify({type:'card',data:{card_id:cardId}}),reply_in_thread:message.reply_in_thread,uuid:replyUuid(config.larkAppId,message.id)},{authorize});if(typeof data.message_id!=='string'||data.chat_id!==message.chat_id)throw new BridgeError('Feishu reply acknowledgement unknown',{uncertain:true});return data.message_id;},
     async attachment(message,index,authorize){

@@ -1,3 +1,4 @@
+import {UPLOAD_RPC_BYTES} from '@dot-bridge/core/channels/uploads.js';
 import { larkToolDefinitions, validateLarkArguments, projectLarkResult } from './tunnel-contract.js';
 import { object, BridgeError } from '@dot-bridge/core/router/common.js';
 import { record, unavailable, callbackUrl, projectPendingMessage, projectPendingMessages } from '@dot-bridge/core/router/live-contract.js';
@@ -30,8 +31,8 @@ export const larkAdapter = Object.freeze({
   readinessTool, liveReadinessTool:liveLarkReadinessTool, backendSetupTool:larkSetupTool,
   readinessBackendTools:[], liveTools:larkToolDefinitions, event:larkEvent, scopes:['owner','configured'],
   limits:{request:262144,response:524288,body:32768,
-    bodyTools:{reply_lark_media:MEDIA_RPC_LIMIT,reply_to_lark:262144,append_lark_reply:262144},
-    requestTools:{reply_lark_media:MEDIA_RPC_LIMIT},responseTools:{get_lark_attachment:MEDIA_RPC_LIMIT},
+    bodyTools:{append_lark_attachment_upload:UPLOAD_RPC_BYTES,reply_lark_media:MEDIA_RPC_LIMIT,reply_to_lark:262144,append_lark_reply:262144},
+    requestTools:{append_lark_attachment_upload:UPLOAD_RPC_BYTES,reply_lark_media:MEDIA_RPC_LIMIT},responseTools:{get_lark_attachment:MEDIA_RPC_LIMIT,list_lark_scheduled_messages:524288},
     timeouts:{get_lark_attachment:45000,reply_to_lark:30000,get_lark_context:25000}},
   validateToolArguments(name,args,live){
     if(name==='check_lark_readiness'){object(args,live?['callback_url']:[]);if(args.callback_url!==undefined)callbackUrl(args.callback_url);return {...args};}

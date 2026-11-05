@@ -28,3 +28,14 @@ export function renderedReply(text, mode = 'text') {
   if (mode === 'card') return { msg_type: 'interactive', content: JSON.stringify(cardDocument(text)) };
   throw new BridgeError('Invalid reply renderer');
 }
+
+export function choiceCardDocument(plan) {
+  plainText(plan.prompt,2000);
+  const elements=[{tag:'markdown',content:safeMarkdown(plan.prompt)}];
+  if(plan.presentation==='select'){
+    elements.push({tag:'select_static',placeholder:{tag:'plain_text',content:'选择一个选项'},options:plan.choices.map(choice=>({text:{tag:'plain_text',content:choice.label},value:choice.token})),behaviors:[{type:'callback',value:{dotbridge_select:true}}]});
+  }else{
+    for(const choice of plan.choices)elements.push({tag:'button',text:{tag:'plain_text',content:choice.label},type:'primary',behaviors:[{type:'callback',value:{dotbridge_choice:choice.token}}]});
+  }
+  return {schema:'2.0',config:{update_multi:true,summary:{content:'请选择一项'}},body:{elements}};
+}
