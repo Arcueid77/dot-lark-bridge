@@ -43,3 +43,12 @@
 新增主动文字和固定提醒：目标只允许已绑定的本人私聊，主动发送默认关闭。管理员批准后可设置 `DOT_BRIDGE_OUTBOUND=owner-text`；原 dot 通过发送、保存提醒、查询、修改和取消工具管理，不需要重建事件订阅。每条最多 2,000 字符，重复提醒需有结束日期。
 
 详见[定时消息使用指南](https://github.com/Arcueid77/dot-bridge/blob/main/docs/scheduled-messages.md)。
+
+
+## 交互与维护
+
+保留原 `LARK_INTERACTION_POLICY_FILE`：处理表情、状态卡、媒体、真实增量卡片、本人私聊及受控群规则在同一受保护策略中配置。`append_lark_reply` 每次提交新生成的增量，序号连续；最后用完整文本 `reply_to_lark` 完成同一卡片。近期历史与引用由 `get_lark_context` 按原会话范围读取。
+
+本人原私聊支持 `/help`、`/status`、`/queue`、`/subscription`、`/cancel [编号]`。标准回调模式下，显式 `DOT_BRIDGE_OWNER_MANAGEMENT=1` 可在 dot 订阅缺失时保持维护连接。取消只作用于尚未发送的桥回复；本次已开始的 begin/append 处理仍要完成唯一最终回复，结果不明保持核对。详情见[配置说明](docs/configuration.md)。
+
+Linux、Windows 前台运行及 Linux systemd 的用法见[部署说明](docs/deployment.md)。macOS 尚未验证，欢迎试用并反馈。原 dot 的暂停、重置和审批继续使用原平台入口。

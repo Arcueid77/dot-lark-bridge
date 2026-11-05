@@ -6,7 +6,7 @@ This page covers images, audio, files, cards and group settings for your existin
 
 These features require a protected interaction configuration and the corresponding Feishu permissions. Without `LARK_INTERACTION_POLICY_FILE`, the bridge handles only the owner's private text messages. Enable media, reactions, cards and groups using the settings below.
 
-`check_lark_readiness` reports gateway and original-dot subscription state separately, including the stored expiry and complete pending, processing and uncertain outbound-work counts. The gateway waits for a valid subscription. Missing diagnostic history cannot reconstruct an earlier failure. Reading status never renews a subscription or changes configuration.
+`check_lark_readiness` reports gateway and original-dot subscription state separately, including the stored expiry and complete pending, processing and uncertain outbound-work counts. By default the gateway waits for a valid subscription; the owner-maintenance opt-in below preserves the local command path without one. Missing diagnostic history cannot reconstruct an earlier failure. Reading status never renews a subscription or changes configuration.
 
 Feishu continues to use `MCP_CALLBACK_ALLOWED_HOSTS`. A mistakenly supplied `CALLBACK_HOSTS` setting is reported as a name mismatch; its domains are not accepted or copied automatically.
 

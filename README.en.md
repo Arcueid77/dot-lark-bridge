@@ -40,3 +40,12 @@ The project uses the [MIT license](LICENSE). See [third-party notices](THIRD_PAR
 
 
 Shared owner IM maintenance (`/status`, `/queue`, `/subscription`, `/cancel`) preserves the existing inbox, keys and subscriptions. Optional management-only gateway connection and shared protected document extraction are described in [configuration](docs/configuration.en.md).
+
+
+## Interaction and maintenance
+
+Keep the existing protected `LARK_INTERACTION_POLICY_FILE` for reactions, status cards, media, genuine card updates and owner/group rules. `append_lark_reply` submits only the newly generated delta with consecutive sequence numbers; complete the same card with the full `reply_to_lark` text. `get_lark_context` reads retained history/quotes in the source conversation scope.
+
+The owner DM supports `/help`, `/status`, `/queue`, `/subscription`, and `/cancel [reference]`. In standard callback mode, explicit `DOT_BRIDGE_OWNER_MANAGEMENT=1` keeps maintenance connected without an active dot subscription. Cancel only unsent bridge replies; the current legitimate begin/append flow still completes one final answer, while uncertain outcomes remain for review. See [configuration](docs/configuration.en.md).
+
+See [deployment](docs/deployment.en.md) for Windows/Linux foreground and Linux systemd operation. macOS is unverified; trials and feedback are welcome. Hosted-dot pause/reset/approval remain in the original platform.
