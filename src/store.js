@@ -1,12 +1,11 @@
 import { ownerScopedProxy, assertCallbackMode } from './callback-mode.js';
 import { validateLiveConfig } from './live-validation.js';
 import { DatabaseSync } from 'node:sqlite';
-import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BridgeError, canonical, hash } from './common.js';
 import { Vault } from './signatures.js';
-import { windowsPrivateDatabase, windowsPrivateDirectory } from '@dot-bridge/core/platform';
+import { openPrivateDirectory, privateDatabasePath } from '@dot-bridge/core/platform/private-files.js';
 import { routeAllowed } from './interaction-policy.js';
 import { initializeConversationStore, details, saveDetails } from './conversation-store.js';
 import { createStreamRows, finalizeStream } from './interaction-state.js';
@@ -17,12 +16,11 @@ export class Store {
     assertCallbackMode(config);validateLiveConfig(config);
     this.config = config;
     this.vault = new Vault(config.storageKey);
-    if (config.dbPath !== ':memory:' && process.platform === 'win32') {
-      if (config.authMode !== 'tunnel-service') windowsPrivateDirectory(path.dirname(config.dbPath), { create: true }).close();
-      this.privatePath = windowsPrivateDatabase(config.dbPath, { create: true });
-    } else if (config.dbPath !== ':memory:') {
-      fs.mkdirSync(path.dirname(config.dbPath), { recursive: true, mode: 0o700 });
-      if (!fs.existsSync(config.dbPath)) fs.closeSync(fs.openSync(config.dbPath, 'wx', 0o600));
+    if (config.dbPath !== ':memory:') {
+      // All durable modes share the same owner, link and sidecar checks. Keep
+      // the verified parent pinned until SQLite closes; never repair old ACLs.
+      openPrivateDirectory(path.dirname(config.dbPath), { create: config.authMode !== 'tunnel-service' }).close();
+      this.privatePath = privateDatabasePath(config.dbPath, { create: true });
     }
     try { this.db = new DatabaseSync(this.privatePath?.path ?? config.dbPath); }
     catch (error) { this.privatePath?.close(); throw error; }

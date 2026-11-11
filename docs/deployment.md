@@ -27,6 +27,8 @@ npm run simulate
 
 Linux 使用专用非 root 用户，例如 `dot-bridge`，源码放 `/opt/dot-bridge/dot-lark-bridge`。先由管理员创建下列私有目录并设置最终运行用户为属主；叶目录 0700、文件 0600、普通单链接文件，拒绝符号链接/硬链接。Windows 使用所有者/SYSTEM 私有 DACL；不要用放宽权限绕过校验。
 
+已有数据库及其 `-wal`、`-shm`、`-journal` 侧文件也会在打开前检查，OAuth 和 Sites 模式同样适用。遇到路径或权限错误会拒绝启动，不会自动修改旧文件。先停服务、保留一致性备份，再核对运行用户和实际挂载路径；不要删除数据库来绕过检查。
+
 | 路径示例 | 内容 |
 | --- | --- |
 | `/var/lib/dot-bridge/private/lark/credentials.json` | 平台凭据及已核验主人绑定 |

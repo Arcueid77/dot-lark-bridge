@@ -2,7 +2,9 @@
 
 ## Current documentation baseline
 
-Component 0.6.1 consumes reviewed core 0.11.1. Metadata, `vendor/core-release.json` and the lockfile identify its source/artifact. Windows/Linux CI passed. The 2026-11-05 record covers Lark/Discord/Telegram text/progress acceptance; current QQ/Weixin interaction tests await owner messages. Source, pinned runtime and actual delivery remain separate evidence layers.
+Component 0.7.1 consumes reviewed core 0.12.0. Metadata, `vendor/core-release.json` and the lockfile identify its source/artifact. Local checks on 2026-11-11 used Node 24.22.2: Windows passed 287 tests with 20 skips; Linux passed 304 with three skips. The two Linux ownership cases requiring root also passed in a separate run. Remote CI and real-account acceptance were not run for this batch.
+
+All durable database modes reuse core private-file checks for existing databases, sidecars, directory access, ownership and links, rejecting unsafe paths without changing old files. New regressions reproduced eight failures on previous Linux source and passed after the fix. The existing proxy upload fix is retained, with both 5 MiB files and images tested through the bounded official upload endpoint while preserving TLS, redirect rejection and revocation checks.
 
 
 [简体中文](development.md) | [English](development.en.md) | [Home](../README.en.md)

@@ -27,6 +27,8 @@ Replace the placeholder with a reviewed full SHA. Keep `vendor/`, lockfile and r
 
 On Linux use a dedicated non-root user, for example `dot-bridge`, with source at `/opt/dot-bridge/dot-lark-bridge`. An administrator must create private directories owned by the final runtime user: leaf directories 0700, files 0600, regular files with one link. Symlinks and hardlinks are rejected. Windows uses owner/SYSTEM-only private DACLs; do not loosen access to bypass checks.
 
+Existing databases and their `-wal`, `-shm` and `-journal` sidecars are checked before opening, including in OAuth and Sites modes. Unsafe paths or permissions stop startup without automatically changing existing files. Stop the service, retain a consistent backup, and check the runtime user and actual mount paths; do not delete a database to bypass the checks.
+
 | Example path | Contents |
 | --- | --- |
 | `/var/lib/dot-bridge/private/lark/credentials.json` | Provider credentials and verified owner binding |

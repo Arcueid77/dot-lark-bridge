@@ -2,7 +2,9 @@
 
 ## 当前文档基线 / Current documentation baseline
 
-组件 0.6.1 使用固定 core 0.11.1，版本和源 SHA 以 `package.json`、`vendor/core-release.json` 及锁文件为准。Windows／Linux CI 已运行。2026-11-05 记录：飞书私聊状态、三次实际卡片增量完成。
+组件 0.7.1 使用固定 core 0.12.0，版本和源 SHA 以 `package.json`、`vendor/core-release.json` 及锁文件为准。2026-11-11 本地 Node 24.22.2 检查通过：Windows 287 项测试通过、20 项跳过；Linux 304 项通过、3 项跳过，其中需要 root 的两项属主检查已另行运行通过。本轮尚未运行远程 CI 或真实账号验收。
+
+所有持久数据库模式复用 core 私有文件检查，覆盖已有数据库、侧文件、目录权限、属主及链接；拒绝时不改旧文件。新增回归在旧 Linux 源码复现 8 个失败，修复后通过。已有代理上传修复继续沿用，并补测 5 MiB 文件和图片均走受限官方上传入口，保持 TLS、禁止重定向和撤销检查。
 
 Source documentation follows registered capabilities. Preserve reviewed artifacts and package documentation through the next normal release. Actual account acceptance remains separate.
 

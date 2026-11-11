@@ -25,7 +25,7 @@ before(async () => {
   ca = readFileSync(join(dir,'cert.pem'));
   target = https.createServer({ key:readFileSync(join(dir,'key.pem')), cert:ca }, (req,res) => {
     received.push({path:req.url,host:req.headers.host,proxyAuth:req.headers['proxy-authorization']});
-    if(req.url==='/open-apis/im/v1/files'){let size=0;req.on('data',chunk=>{size+=chunk.length;});req.on('end',()=>{received.at(-1).uploadBytes=size;res.end(JSON.stringify({code:0,data:{file_key:'synthetic-upload'}}));});}
+    if(['/open-apis/im/v1/files','/open-apis/im/v1/images'].includes(req.url)){let size=0;req.on('data',chunk=>{size+=chunk.length;});req.on('end',()=>{received.at(-1).uploadBytes=size;res.end(JSON.stringify({code:0,data:{[req.url.endsWith('/images')?'image_key':'file_key']:'synthetic-upload'}}));});}
     else if(req.url==='/redirect'){res.writeHead(302,{location:'https://attacker.invalid/'});res.end();}
     else if(req.url==='/large'){res.end('x'.repeat(1000));}
     else res.end('fixture-ok');
@@ -54,8 +54,10 @@ test('full 5 MiB media uploads use the bounded official multipart path through t
   const upload=createMediaUploadRequester({proxyEnv,providerSend:requester({maxBytes:MAX_ATTACHMENT_BYTES+65536,timeoutMs:10000})});
   const send=()=>assert.fail('large upload used the ordinary small-body sender');send.uploadRequester=upload;
   const api=createInteractionsApi({},send,{token:async()=> 'synthetic-only-token'});
-  assert.equal(await api.upload('file',Buffer.alloc(MAX_ATTACHMENT_BYTES,65),'large.bin',()=>{}),'synthetic-upload');
-  assert.ok(received.at(-1).uploadBytes>MAX_ATTACHMENT_BYTES);assert.ok(received.at(-1).uploadBytes<MAX_ATTACHMENT_BYTES+65536);assert.equal(received.at(-1).host,HOST);
+  for(const [kind,name,endpoint] of [['file','large.bin','files'],['image','large.png','images']]){
+    assert.equal(await api.upload(kind,Buffer.alloc(MAX_ATTACHMENT_BYTES,65),name,()=>{}),'synthetic-upload');
+    assert.ok(received.at(-1).uploadBytes>MAX_ATTACHMENT_BYTES);assert.ok(received.at(-1).uploadBytes<MAX_ATTACHMENT_BYTES+65536);assert.equal(received.at(-1).host,HOST);assert.equal(received.at(-1).path,`/open-apis/im/v1/${endpoint}`);
+  }
   const before=connects.length,request={purpose:'provider',hosts:[HOST],body:Buffer.from('synthetic')};
   for(const target of [`https://${HOST}/open-apis/im/v1/messages`,`https://${HOST}/open-apis/im/v1/files?target=other`,`https://${HOST}/open-apis/im/v1/files#x`,'https://attacker.invalid/open-apis/im/v1/files'])assert.throws(()=>upload(target,request));
   for(const changed of [{...request,method:'GET'},{...request,purpose:'callback'},{...request,hosts:['attacker.invalid']},{...request,body:Buffer.alloc(MAX_ATTACHMENT_BYTES+65537)}])assert.throws(()=>upload(`https://${HOST}/open-apis/im/v1/files`,changed));
