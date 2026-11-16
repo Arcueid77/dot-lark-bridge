@@ -99,7 +99,7 @@ Use Node 24.15–24.x and OpenSSL. Media conversion needs protected Linux `/usr/
 
 Non-Opus conversion and PDF/Office extraction also require the protected `DOT_BRIDGE_AUDIO_GUARD` component described below; core dumps are disabled. These conversions remain off without the guard. Existing Opus audio, images and ordinary file transfer still work. Do not weaken system-file or private-directory permissions to enable conversion.
 
-Image replies accept PNG, JPEG, GIF and WebP. Audio replies accept existing Ogg, WAV and MP3, converting to Opus as required by Feishu; no text-to-speech service is included. The bridge's 5 MiB cap still applies. See the official [image upload](https://open.feishu.cn/document/server-docs/im-v1/image/create) and [file upload](https://open.feishu.cn/document/server-docs/im-v1/file/create) references.
+Image replies accept PNG, JPEG, GIF and WebP. Audio replies accept existing Ogg, WAV and MP3, converting to Opus as required by Feishu; optional protected local speech synthesis is available through the speech tools. The bridge's 5 MiB cap still applies. See the official [image upload](https://open.feishu.cn/document/server-docs/im-v1/image/create) and [file upload](https://open.feishu.cn/document/server-docs/im-v1/file/create) references.
 
 After updating, send text, an image, a short voice message and a small file from your private chat, and confirm each reply returns to that conversation. If cards or groups are enabled, also check their updates, trigger rules and member limits. Restarting the service should not resend completed replies, and disconnecting SSH should leave the service running. Plan a whole-server reboot separately.
 

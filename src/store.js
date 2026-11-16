@@ -176,6 +176,7 @@ export class Store {
       .map(row=>({message_id:row.id,reply_deadline:new Date(row.expires).toISOString(),reply_status:this.replyStatus(row.id).status}));
   }
   queueReply(id, text, principal, now, plan = null) {
+    this.conversationQueue?.assertWritable(id);
     return this.tx(() => {
       const message = this.authorizeMessage(id, principal, now);
       const digest=hash(plan?canonical(plan):text);
@@ -200,6 +201,8 @@ export class Store {
     });
   }
   replyStatus(id) {
+    const anchor=this.conversationQueue?.anchor(id)??id;
+    if(anchor!==id)return {...this.replyStatus(anchor),message_id:id};
     if(this.management?.cancelled(id))return {message_id:id,status:'cancelled',error:null};
     const row = this.get("SELECT state,last_error FROM jobs WHERE id=? AND kind='reply'", `reply:${id}`);
     const stream=!row?this.get('SELECT state,payload FROM reply_streams WHERE message_id=?',id):null;

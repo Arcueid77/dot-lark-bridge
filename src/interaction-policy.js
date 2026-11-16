@@ -1,5 +1,6 @@
 import { BridgeError, object, string } from './common.js';
 import { readPrivateJson } from './private-files.js';
+import {interactionPolicy} from '@dot-bridge/core/channels/experience-policy.js';
 import { LARK_INPUT_LIMIT, LARK_REPLY_LIMIT, LARK_MEDIA_BYTES } from './tunnel-contract.js';
 
 export const MAX_INPUT_TEXT = LARK_INPUT_LIMIT;
@@ -8,11 +9,12 @@ export const MAX_ATTACHMENT_BYTES = LARK_MEDIA_BYTES;
 export const DEFAULT_INTERACTION = Object.freeze({ enabled: false, reactions: false, render: 'text', media: false, streaming: false, autoCard:false,botOpenId: '', groupMentions: Object.freeze({enabled:false,members:'owner',allowFrom:Object.freeze([]),replyInThread:false}), groups: Object.freeze([]) });
 
 export function validateInteractionPolicy(value) {
-  object(value, ['version', 'enabled', 'reactions', 'render', 'media', 'streaming','auto_card', 'bot_open_id', 'group_mentions', 'groups'], ['version']);
+  object(value, ['version', 'enabled', 'reactions', 'render', 'media', 'streaming','auto_card', 'bot_open_id', 'group_mentions', 'groups', 'queue'], ['version']);
   if (value.version !== 1) throw new BridgeError('Unsupported interaction policy');
   for (const field of ['enabled', 'reactions', 'media', 'streaming','auto_card']) if (value[field] !== undefined && typeof value[field] !== 'boolean') throw new BridgeError('Invalid interaction setting');
   const policy = { ...DEFAULT_INTERACTION, enabled: value.enabled ?? true, reactions: value.reactions ?? false, render: value.render ?? 'post', media: value.media ?? false, streaming: value.streaming ?? false, botOpenId: value.bot_open_id ?? '', groups: [] };
   policy.autoCard=value.auto_card??policy.streaming;
+  policy.queue=interactionPolicy({queue:value.queue}).queue;
   if (!['text', 'post', 'card'].includes(policy.render)) throw new BridgeError('Invalid reply renderer');
   if (policy.botOpenId) string(policy.botOpenId, 256);
   if(value.group_mentions!==undefined){

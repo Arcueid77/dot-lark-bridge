@@ -31,9 +31,9 @@ export const larkAdapter = Object.freeze({
   readinessTool, liveReadinessTool:liveLarkReadinessTool, backendSetupTool:larkSetupTool,
   readinessBackendTools:[], liveTools:larkToolDefinitions, event:larkEvent, scopes:['owner','configured'],
   limits:{request:262144,response:524288,body:32768,
-    bodyTools:{append_lark_attachment_upload:UPLOAD_RPC_BYTES,reply_lark_media:MEDIA_RPC_LIMIT,reply_to_lark:262144,append_lark_reply:262144},
+    bodyTools:{save_lark_task_result:262144,append_lark_attachment_upload:UPLOAD_RPC_BYTES,reply_lark_media:MEDIA_RPC_LIMIT,reply_to_lark:262144,append_lark_reply:262144},
     requestTools:{append_lark_attachment_upload:UPLOAD_RPC_BYTES,reply_lark_media:MEDIA_RPC_LIMIT},responseTools:{get_lark_attachment:MEDIA_RPC_LIMIT,list_lark_scheduled_messages:524288},
-    timeouts:{get_lark_attachment:45000,reply_to_lark:30000,get_lark_context:25000}},
+    timeouts:{reply_lark_speech:45000,reply_lark_media:15000,finish_lark_attachment_upload:15000,reply_lark_uploaded_attachment:15000,get_lark_attachment:45000,reply_to_lark:30000,get_lark_context:25000}},
   validateToolArguments(name,args,live){
     if(name==='check_lark_readiness'){object(args,live?['callback_url']:[]);if(args.callback_url!==undefined)callbackUrl(args.callback_url);return {...args};}
     if(!live)throw new BridgeError('Operation is not enabled for this channel',{status:403,code:-32012});

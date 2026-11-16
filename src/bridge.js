@@ -1,5 +1,10 @@
 import {legacyExperienceStatus} from '@dot-bridge/core/channels/legacy-experience-status.js';
 import {LegacyManagement} from '@dot-bridge/core/channels/legacy-management.js';
+import {TaskLedger,isTaskTool} from '@dot-bridge/core/channels/tasks.js';
+import {LegacyConversationQueue} from '@dot-bridge/core/channels/legacy-conversation-queue.js';
+import {SourceSpeech,isSpeechTool,validateSpeechArguments} from '@dot-bridge/core/channels/speech.js';
+import {needsReplyFile} from './reply-renderer.js';
+import {BridgeError as CoreTaskError} from '@dot-bridge/core/router/common.js';
 import { ownerScopedProxy, assertCallbackMode } from './callback-mode.js';
 import { transcribeAudio } from '@dot-bridge/core/audio';
 import { larkSetupTool, callbackPreflight } from './setup-preflight.js';
@@ -39,14 +44,52 @@ export class Bridge {
       authorize:id=>this.authorizeStoredMessage(id,this.config.principal,this.clock())});
     this.uploads=new SourceUploads({channel:'lark',db:this.store.db,seal:(v,a)=>this.store.vault.seal(v,a),open:(v,a)=>this.store.vault.open(v,a),clock,
       authorize:id=>this.authorizeStoredMessage(id,this.config.principal,this.clock())});
+    this.tasks = new TaskLedger({channel: 'lark', db: this.store.db,
+      seal: (value, aad) => this.store.vault.seal(value, aad), open: (value, aad) => this.store.vault.open(value, aad), clock,
+      authorizeSource: (id, {ownerLookup = false} = {}) => {
+        const message = ownerLookup ? this.store.message(id) : this.authorizeStoredMessage(id, config.principal, this.clock());
+        if (ownerLookup && (!message || !this.management.ownerPrivate(message))) throw new BridgeError('Task owner is unavailable.', {code: -32012});
+        return {deadline: message.expires, retainUntil: message.received + (config.textRetentionMs ?? 604800000),
+          scope: message.chat_type === 'group' ? 'configured' : 'owner', replyState: this.store.replyStatus(id).status};
+      }});
     this.outbox=new OwnerOutbox({channel:'lark',db:this.store.db,seal:(v,a)=>this.store.vault.seal(v,a),open:(v,a)=>this.store.vault.open(v,a),enabled:config.outboundEnabled===true,clock,
       // The paired HTTP create API does not depend on the inbound socket or an
       // event subscription. Its real gateway state is reported separately.
       available:()=>this.bindingReady(),send:args=>this.sendLark.sendOwnerMessage(args)});
     this.interactions=new InteractionState(this);
+    this.queue=new LegacyConversationQueue({store:this.store,policy:config.interaction?.queue,clock,ErrorType:BridgeError,
+      key:message=>routeAllowed(config,message)?conversationReference(config,message):null,
+      status:id=>this.store.replyStatus(id),onMerge:id=>{
+        this.store.run("UPDATE jobs SET state='cancelled',last_error='combined_reply' WHERE message_id=? AND kind='stream' AND attempts=0 AND state='pending'",id);
+        this.store.run("UPDATE reply_streams SET state='cancelled' WHERE message_id=?",id);
+      }});
+    this.store.conversationQueue=this.queue;
+    this.speech=new SourceSpeech({channel:'lark',authorizeRead:id=>this.authorizeStoredMessage(id,config.principal,this.clock()),
+      authorize:id=>{this.queue.assertWritable(id);const message=this.authorizeStoredMessage(id,config.principal,this.clock());if(message.expires<=this.clock())throw new BridgeError('Bridge reply deadline expired');},
+      existing:id=>{
+        if(!this.store.get('SELECT message_id FROM replies WHERE message_id=?',id))return;
+        const row=this.store.get('SELECT payload FROM reply_details WHERE message_id=?',id);
+        return {digest:row?.payload?this.store.vault.open(row.payload,'reply-details:'+id).speechRequestDigest:null};
+      },
+      queue:(id,audio)=>this.store.queueReply(id,'[语音回复]',config.principal,this.clock(),{
+        type:audio.type,name:audio.name,mimeType:audio.mimeType,data:audio.data.toString('base64'),speechRequestDigest:audio.speechRequestDigest}),
+      status:id=>{const result=this.store.replyStatus(id);return {message_id:id,status:result.status};},
+      providerReady:()=>config.interaction?.media===true,
+      begin:id=>this.tasks.begin(id),recordResult:(id,text,key)=>{const task=this.tasks.begin(id);if(!task.result_available)this.tasks.save(task.task_id,text,key);}});
     this.management=new LegacyManagement({store:this.store,channel:'飞书 / Lark',enabled:config.authMode==='tunnel-service'&&!tunnelReadiness(config),clock,receiveWithoutSubscription:config.ownerManagementConnection===true,
       ownerPrivate:message=>message.owner===this.config.ownerOpenId&&(message.chat_id??message.chatId)===this.config.ownerChatId&&(message.chat_type??message.chatType??'p2p')==='p2p',
-      status:()=>this.runtimeStatus(),sendReply:(message,text,authorize)=>this.sendLark({...message,tenant_key:message.tenant_key??message.tenantKey,chat_id:message.chat_id??message.chatId,chat_type:'p2p',reply_in_thread:false},text,{authorize})});
+      tasks: this.tasks,
+      status:()=>this.runtimeStatus(),sendReply:async(message,text,authorize)=>{
+        const source={...message,tenant_key:message.tenant_key??message.tenantKey,chat_id:message.chat_id??message.chatId,chat_type:'p2p',reply_in_thread:false};
+        if(needsReplyFile(text)&&config.interaction?.media){
+          const bytes=Buffer.from(text,'utf8');
+          try{const key=await this.interactions.api.upload('file',bytes,'task-result.md',authorize);return await this.interactions.api.replyMedia(source,'file',key,authorize);}
+          finally{bytes.fill(0);}
+        }
+        const limit=config.interaction?.enabled?MAX_REPLY_TEXT:2000;
+        const visible=text.length>limit?'完整结果已保存，当前飞书配置未启用长文文件。请让原 dot 通过任务结果工具读取。':text;
+        return this.sendLark(source,visible,{authorize});
+      }});
     this.store.management=this.management;
     this.running = false;
   }
@@ -184,6 +227,20 @@ export class Bridge {
       case 'events/unsubscribe': return this.unsubscribe(params, principal);
       case 'tools/call': {
         object(params, ['name', 'arguments', '_meta'], ['name', 'arguments']);
+        if(isSpeechTool('lark',params.name)){
+          if(principal.id!==this.config.principal)throw new BridgeError('Speech principal is unavailable.',{code:-32012});
+          try{validateSpeechArguments('lark',params.name,params.arguments);return toolResult(params.name==='check_lark_speech'?this.speech.check():await this.speech.reply(params.arguments));}
+          catch(error){if(error instanceof CoreTaskError)throw new BridgeError(error.message,{status:error.status,code:error.code});throw error;}
+        }
+        if(typeof params.arguments?.message_id==='string'&&toolDefinitions.find(tool=>tool.name===params.name)?.annotations.readOnlyHint===false)this.queue.assertWritable(params.arguments.message_id);
+        if (isTaskTool('lark', params.name)) {
+          if (principal.id !== this.config.principal) throw new BridgeError('Task principal is unavailable.', {code: -32012});
+          try { return toolResult(this.tasks.call(params.name, params.arguments)); }
+          catch (error) {
+            if (error instanceof CoreTaskError) throw new BridgeError('Lark task request refused.', {status: error.status, code: error.code});
+            throw error;
+          }
+        }
         if(isChoiceTool('lark',params.name)){
           const args=validateChoiceArguments('lark',params.name,params.arguments),source=this.authorizeStoredMessage(args.message_id,principal.id,this.clock());
           if(params.name==='get_lark_choice_result')return toolResult(this.choices.result(source.id));
@@ -216,7 +273,7 @@ export class Bridge {
         if (params.name === 'get_lark_message') {
           object(params.arguments, ['message_id'], ['message_id']); string(params.arguments.message_id, 256);
           const message = this.authorizeStoredMessage(params.arguments.message_id, principal.id, this.clock());
-          return toolResult({ message_id: message.id, text: message.text, reply_deadline: new Date(message.expires).toISOString(), reply: this.store.replyStatus(message.id),conversation:{kind:message.chat_type,key:conversationReference(this.config,message)},attachments:message.attachments.map((item,index)=>({index,type:item.type,name:item.name})),quoted_message_id:message.quote_id });
+          return toolResult({ message_id: message.id, text: this.queue.text(message),...(this.queue.members(message.id).length>1?{source_message_ids:this.queue.members(message.id)}:{}), reply_deadline: new Date(message.expires).toISOString(), reply: this.store.replyStatus(message.id),conversation:{kind:message.chat_type,key:conversationReference(this.config,message)},attachments:message.attachments.map((item,index)=>({index,type:item.type,name:item.name})),quoted_message_id:message.quote_id });
         }
         if (params.name === 'reply_to_lark') {
           object(params.arguments, ['message_id', 'text','delivery_mode'], ['message_id', 'text']); string(params.arguments.message_id, 256); plainText(params.arguments.text,this.config.interaction?.enabled?MAX_REPLY_TEXT:2000);
@@ -244,7 +301,11 @@ export class Bridge {
         if(LARK_TOOL_NAMES.has(params.name)){
           let args;try{args=validateLarkArguments(params.name,params.arguments);}catch{throw new BridgeError('Invalid Lark tool arguments');}
           const message=this.authorizeStoredMessage(args.message_id,principal.id,this.clock());
-          if(params.name==='begin_lark_reply')return toolResult(this.interactions.begin(message));
+          if(params.name==='begin_lark_reply'){
+            const result = this.interactions.begin(message);
+            if (message.expires > this.clock()) this.tasks.begin(message.id);
+            return toolResult(result);
+          }
           if(params.name==='append_lark_reply')return toolResult(this.interactions.append(message,args.sequence,args.text));
           if(!this.config.interaction?.media)throw new BridgeError('Media messages are not enabled');
           if(params.name==='get_lark_attachment'){
@@ -272,6 +333,7 @@ export class Bridge {
     }
   }
   async tick() {
+    this.tasks.purge();
     if (tunnelReadiness(this.config)) return false;
     if (this.running) return false;
     this.running = true;
@@ -282,6 +344,7 @@ export class Bridge {
       await this.dispatchChoices();
       if(await this.management.tick())return true;
       await this.outbox.tick();
+      this.queue.prepare();
       job = this.store.claim(now);
       if (!job) return false;
       const message = this.store.message(job.message_id), subscription = this.store.subscription(job.subscription_id);
@@ -292,6 +355,7 @@ export class Bridge {
       if (message.expires <= now || message.text === null) { this.store.finish(job, 'expired', 'reply_window_expired'); return true; }
       if (job.attempts > this.config.maxAttempts) { this.store.finish(job, 'dead', 'attempt_limit'); return true; }
       if (job.kind === 'event') {
+        if(!this.queue.canDispatch(message)){this.store.finish(job,'pending',null,now+500,{resetAttempts:true});return true;}
         if(this.config.interaction?.enabled){
           try{this.store.tx(()=>this.store.rate('inbound',this.config.inboundPerMinute,now));}
           catch(error){
@@ -301,10 +365,10 @@ export class Bridge {
           }
         }
         const event = { eventId: message.event_id, name: EVENT_NAME, timestamp: message.occurred_at,
-          data: { message_id: message.id, conversation: message.chat_type==='group'?'group':'owner', text: message.text, reply_deadline: new Date(message.expires).toISOString(),...(this.config.interaction?.enabled?{context_key:conversationReference(this.config,message),attachments:message.attachments.length}:{}) }, cursor: null };
+          data: { message_id: message.id, conversation: message.chat_type==='group'?'group':'owner', text: this.queue.text(message), reply_deadline: new Date(message.expires).toISOString(),...(this.config.interaction?.enabled?{context_key:conversationReference(this.config,message),attachments:message.attachments.length}:{}) }, cursor: null };
         const body = Buffer.from(JSON.stringify(event));
         if (body.length > 262144) throw new BridgeError('Event exceeds payload limit');
-        this.store.run('UPDATE messages SET attempted_at=? WHERE id=?', now, message.id);
+        this.queue.markAttempted(message,now);
         const response = await this.send(subscription.url, { purpose: 'callback', hosts: this.config.callbackHosts.length?this.config.callbackHosts:[new URL(subscription.url).hostname], headers: webhookHeaders(subscription, event.eventId, body, this.clock()), body,
           beforeConnect: () => this.authorizeJob(job) });
         if (response.status >= 200 && response.status < 300) this.store.finish(job, 'delivered');

@@ -7,6 +7,7 @@ import { readBridgeMode } from './bridge-mode.js';
 import { loadCredentials } from './credentials.js';
 import { loadInteractionPolicy } from './interaction-policy.js';
 import {outboundEnabled} from '@dot-bridge/core/channels/outbound.js';
+import {speechConfiguration} from '@dot-bridge/core/audio/synthesis.js';
 
 function number(env, key, fallback, min, max) {
   const value = env[key] ? Number(env[key]) : fallback;
@@ -14,6 +15,7 @@ function number(env, key, fallback, min, max) {
   return value;
 }
 export function readConfig(env = process.env) {
+  speechConfiguration(env);
   const operation = env.TUNNEL_SERVICE_OPERATION || 'readiness';
   const callbackTransportMode=env.CALLBACK_TRANSPORT_MODE||'standard';
   assertCallbackMode({callbackTransportMode,authMode:env.AUTH_MODE,tunnelServiceOperation:operation,bridgeMode:env.BRIDGE_MODE,principal:env.TUNNEL_SERVICE_OWNER_ID});
