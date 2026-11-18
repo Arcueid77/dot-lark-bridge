@@ -355,7 +355,7 @@ export class Bridge {
       if (message.expires <= now || message.text === null) { this.store.finish(job, 'expired', 'reply_window_expired'); return true; }
       if (job.attempts > this.config.maxAttempts) { this.store.finish(job, 'dead', 'attempt_limit'); return true; }
       if (job.kind === 'event') {
-        if(!this.queue.canDispatch(message)){this.store.finish(job,'pending',null,now+500,{resetAttempts:true});return true;}
+        if (!this.queue.canDispatch(message)) { this.store.defer(job, now + 500); return true; }
         if(this.config.interaction?.enabled){
           try{this.store.tx(()=>this.store.rate('inbound',this.config.inboundPerMinute,now));}
           catch(error){
@@ -375,7 +375,7 @@ export class Bridge {
         else {
           if (response.status === 410) {
             this.store.finish(job, 'dead', 'Callback subscription removed');
-            this.store.unsubscribe(subscription.id);
+            this.store.unsubscribe(subscription.id, subscription);
             return true;
           }
           throw new BridgeError('Event callback rejected', { retryable: response.status === 408 || response.status === 429 || response.status >= 500 });

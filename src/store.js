@@ -102,12 +102,17 @@ export class Store {
       this.run('INSERT INTO metadata(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', `subscription_scope:${subscription.id}`, subscription.scope ?? 'owner');
     });
   }
-  unsubscribe(id) {
+  unsubscribe(id, expected) {
     this.tx(() => {
+      if (expected) {
+        const current = this.get('SELECT active,generation,callback FROM subscriptions WHERE id=?', id);
+        if (!current?.active || current.generation !== expected.generation || current.callback !== expected.callback) return;
+      }
       this.run(`INSERT INTO metadata(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
         `subscription_epoch:${id}`, String(this.subscriptionEpoch(id) + 1));
       this.run('UPDATE subscriptions SET active=0 WHERE id=? AND principal=?', id, this.config.principal);
-      this.run("UPDATE jobs SET state='cancelled',last_error='unsubscribed',lease_token=NULL WHERE subscription_id=? AND state IN ('pending','processing')", id);
+      // Preserve the receipt of a claimed provider request after revocation.
+      this.run("UPDATE jobs SET state='cancelled',last_error='unsubscribed',lease_token=NULL WHERE subscription_id=? AND state='pending'", id);
     });
   }
   rate(kind, limit, now) {
@@ -229,6 +234,10 @@ export class Store {
   }
   finish(job, state, reason = null, next = 0, { resetAttempts = false } = {}) {
     this.run("UPDATE jobs SET state=?,last_error=?,next_at=?,attempts=CASE WHEN ? THEN 0 ELSE attempts END,lease_until=NULL,lease_token=NULL WHERE id=? AND lease_token=? AND state='processing'", state, reason, next, resetAttempts ? 1 : 0, job.id, job.lease_token);
+  }
+  defer(job, next) {
+    this.run("UPDATE jobs SET state='pending',attempts=attempts-1,next_at=?,lease_until=NULL,lease_token=NULL WHERE id=? AND lease_token=? AND state='processing'",
+      next, job.id, job.lease_token);
   }
   recordEventUncertain(job) {
     // Revocation can stop future work but cannot undo a callback already on wire.
